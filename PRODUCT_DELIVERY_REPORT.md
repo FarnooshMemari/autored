@@ -26,6 +26,11 @@ non-destructive · no paid APIs · no AI co-author trailers.
 - **Adaptive + Hybrid Commanders.** A bounded local-Ollama planner loop (plan→delegate→
   observe→revise→decide) that proposes creative probes but never lowers the evidence bar;
   a **hybrid** mode runs the fixed suite first then adaptive follow-ups seeded by its results.
+- **Mission persistence & reopening:** completed and interrupted missions reopen fully
+  after a **server restart** — findings, event timeline, evidence screenshots and reports
+  are rebuilt from the durable event log (recorded evidence is clearly distinguished from
+  live streams). All four assessment modes (Fixed, Adaptive, Hybrid, Connectivity) execute
+  the selected strategy (E2E-tested).
 - **Complete dark-first dashboard** (React/TS) on **real** backend data: Mission
   Control, Live Operations (five animated agent characters + **real live browser frames
   with coordinate overlays** + activity feed), Findings Explorer + Evidence Inspector

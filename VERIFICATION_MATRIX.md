@@ -36,7 +36,11 @@ against real code/data (test, live experiment, or Chromium inspection), not asse
 | Durable storage + reproducible reports | `test_storage_reporting`; History survives restart | ✅ |
 | API authorization + path-traversal resistance | `test_security` (3) | ✅ |
 | Safety: scope/origin guard/rate/concurrency/e-stop | `test_scope_and_limits`, `test_e2e` | ✅ |
-| Dashboard: 6 views + 5 characters + mobile | Chromium screenshots (pilots/screenshots/) | ✅ |
+| Dashboard: 6 views + 5 characters + mobile | Chromium screenshots (pilots/screenshots/final/, desktop+mobile) | ✅ |
+| Assessment modes (Fixed/Adaptive/Hybrid/Connectivity) execute | `test_modes_persistence::test_modes_execute_selected_strategy` | ✅ |
+| Mission reopening after server restart | `test_modes_persistence::test_mission_reopens_after_restart` + Chromium | ✅ |
+| Recorded evidence vs live streams distinguished | Operations RECORDED badges + "recorded" header (screenshots) | ✅ |
+| Loading / error / empty states | explicit states in App/useMission (no silent empty pages) | ✅ |
 
 ## Experiments (real runs; pilots/experiments/*.json)
 | Exp | What | Result | Status |
