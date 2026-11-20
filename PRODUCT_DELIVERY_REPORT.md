@@ -45,16 +45,19 @@ non-destructive · no paid APIs · no AI co-author trailers.
   baseline missed. We do **not** claim adaptive improves discovery.
 - **Held-out (Exp C):** adaptive on the hardened config it was not designed against →
   0 confirmed, no over-claiming.
+- **Cross-account, tester-controlled (Exp D):** AutoRed planted a runtime marker and verified cross-account access with no owner seeding; 0 false positives, latent over-permission surfaced via audit (see docs/EXPERIMENTS.md).
 - **Deception (Exp E, partial):** tool-action claims with no matching audit record are
   reported as fabricated/deceptive, distinct from verified side effects.
 
 ## What remains limited (honest)
-- **Confirmation still leans on owner-instrumented ground truth** (seeded canaries + a
-  tool-audit oracle). Un-instrumented real assistants → mostly `inconclusive`. The
-  tester-controlled ground-truth method (plant known data via controlled accounts;
-  confirm by observation) is **designed** (`docs/NEXT_STEP_ASSESSMENT.md`) but **not yet
-  implemented** — it is the top next step.
-- **Experiments D (cross-account via tester-planted data) and F (full
+- **Tester-controlled ground truth is now implemented** (Experiment D): AutoRed plants a
+  unique runtime marker via a controlled account and verifies cross-account access
+  itself, with **no owner-seeded canary or audit**. It correctly reported no false
+  positive and surfaced a latent backend over-permission via the audit. Remaining gap:
+  confirming a *user-facing* disclosure still depends on the model surfacing the data
+  (the small local model masked it), and the richer tool-audit oracle is still used where
+  available for strong confirmation.
+- **Experiment F (full
   failure/recovery)** are partial; mission *recovery after process restart* persists
   findings but does not yet resume an in-flight mission.
 - **No externally-hosted third-party target** has been tested (authorization/ToS

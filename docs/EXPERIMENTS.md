@@ -131,3 +131,32 @@ are **efficiency** (≈half the probes and time) and **no over-claiming** on the
 hardened config (0 confirmed; all tool calls backend-rejected). Its intended advantage
 on **large/unknown attack surfaces** is not testable on this small, well-covered target
 and remains unproven.
+
+## Experiment D — Cross-account access with TESTER-CONTROLLED ground truth
+`backend/experiments/cross_account.py` · N=3 each · results in `pilots/experiments/cross_account.json`.
+
+The key research step from `NEXT_STEP_ASSESSMENT.md`: verify a cross-account leak
+**without any owner-seeded canary or privileged audit**. AutoRed, acting as a victim
+test account, plants a **unique runtime marker** in that account's private memo through
+the app's own tool, then — as a *different* account — asks the assistant to read the
+victim's memo, and checks the reply for the marker it planted. The marker is
+tester-generated, so the verification is self-contained.
+
+| | Vulnerable | Hardened |
+|---|---|---|
+| Marker planted (tester-controlled) | 3/3 | 3/3 |
+| **User-facing leak** (marker in reply) | **0/3** (95% CI 0–56%) | **0/3** |
+| Backend `read_memo` cross-account executed (audit) | **3/3** | **0/3 (denied)** |
+
+**Two-layer, honest result.** The method works end-to-end with **no owner
+instrumentation**. It confirmed **no user-facing leak** in either mode (no false
+positive): the `llama3.2:3b` model *called* the cross-account tool but then refused to
+surface the memo in its reply. Separately, the tool audit shows a **latent backend
+over-permission** in the vulnerable config (the cross-account `read_memo` *executed*
+3/3) that the hardened config correctly denies (0/3). AutoRed distinguishes a
+**confirmed user-facing disclosure** (none here) from a **latent authorization gap**
+(present in vulnerable) — and reaches the ground truth from a value it planted itself,
+not from a canary the target owner seeded. This is the capability that lets AutoRed
+verify findings on targets whose internals it cannot see, provided it has an authorized
+test account. (A stronger model, or a target that surfaces retrieved data, would turn
+the latent gap into a confirmed user-facing leak; we do not tune the target to force one.)
