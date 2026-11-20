@@ -7,22 +7,43 @@ type Action = { kind: "reset"; state: MissionState } | { kind: "event"; e: AutoR
 
 const reducer = (s: MissionState, a: Action) => (a.kind === "reset" ? a.state : reduce(s, a.e));
 
-/** Snapshot first, then live events from last_seq; no gaps, no duplicates. */
+/** Loads a mission. Live missions stream from last_seq; completed/interrupted
+ * ("recorded") missions are rebuilt fully from the persisted event log. */
 export function useMission(client: AutoRedClient, missionId: string | null) {
   const [state, dispatch] = useReducer(reducer, emptyMission(""));
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   useEffect(() => {
     if (!missionId) return;
     let stop: (() => void) | undefined, cancelled = false;
-    client.mission(missionId).then((snap) => {
+    setLoading(true); setError(null);
+    client.mission(missionId).then(async (snap) => {
       if (cancelled) return;
-      const s = fromSnapshot(snap);
-      dispatch({ kind: "reset", state: s });
-      stop = client.streamEvents(missionId, s.last_seq, (e) => dispatch({ kind: "event", e }));
-    }).catch((e) => setError(String(e)));
+      if (snap.live) {
+        const s = fromSnapshot(snap);
+        dispatch({ kind: "reset", state: s });
+        setLoading(false);
+        stop = client.streamEvents(missionId, s.last_seq, (e) => dispatch({ kind: "event", e }));
+      } else {
+        // recorded: replay the durable event log to rebuild timeline + agent states;
+        // if the log is unavailable (store-only mission) fall back to stored findings.
+        let s: MissionState;
+        try {
+          const events = await client.events(missionId);
+          s = { ...emptyMission(missionId), target_id: snap.target_id, operator: snap.operator };
+          for (const e of events) s = reduce(s, e);
+        } catch {
+          s = fromSnapshot(snap);
+        }
+        if (cancelled) return;
+        s.live = false;
+        dispatch({ kind: "reset", state: s });
+        setLoading(false);
+      }
+    }).catch((e) => { if (!cancelled) { setError(String(e)); setLoading(false); } });
     return () => { cancelled = true; stop?.(); };
   }, [client, missionId]);
-  return { state, error };
+  return { state, error, loading };
 }
 
 /** Latest live browser frame for one agent. */

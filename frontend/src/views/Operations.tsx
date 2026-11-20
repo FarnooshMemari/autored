@@ -7,9 +7,10 @@ import { useAgentFrame } from "../state/useMission";
 import { AgentCharacter } from "../components/AgentCharacter";
 import { Pill, Section } from "../components/common";
 
-function LiveBrowser({ client, missionId, agent, info, expanded, onToggle }:
-  { client: AutoRedClient; missionId: string; agent: AgentView; info?: AgentInfo; expanded: boolean; onToggle: () => void }) {
-  const src = useAgentFrame(client, missionId, agent.agent_id);
+function LiveBrowser({ client, missionId, agent, info, live, recordedShot, expanded, onToggle }:
+  { client: AutoRedClient; missionId: string; agent: AgentView; info?: AgentInfo; live: boolean; recordedShot?: string; expanded: boolean; onToggle: () => void }) {
+  const liveSrc = useAgentFrame(client, live ? missionId : null, agent.agent_id);
+  const src = live ? liveSrc : (recordedShot ? client.artifactUrl(missionId, recordedShot) : null);
   const vp = agent.viewport ?? { width: 1100, height: 720 };
   const box = agent.lastBox;
   return (
@@ -23,10 +24,12 @@ function LiveBrowser({ client, missionId, agent, info, expanded, onToggle }:
         <button className="btn sm ghost" onClick={onToggle}>{expanded ? "⤢ Collapse" : "⤢ Expand"}</button>
       </div>
       <div style={{ position: "relative", aspectRatio: "3 / 2", background: "#05070b" }}>
-        {src ? <img src={src} alt={`Live browser for ${agent.agent_id}`} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
-          : <div className="row" style={{ height: "100%", justifyContent: "center", color: "var(--faint)", gap: 8 }}>
-              {agent.status === "idle" ? "not started" : <><span className="spinner" /> connecting to browser…</>}</div>}
-        {src && box && box.width > 0 && (
+        {!live && <span className="rec-badge">● RECORDED</span>}
+        {src ? <img src={src} alt={`${live ? "Live" : "Recorded"} browser for ${agent.agent_id}`} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+          : <div className="row" style={{ height: "100%", justifyContent: "center", color: "var(--faint)", gap: 8, textAlign: "center", padding: 16 }}>
+              {live ? (agent.status === "idle" ? "not started" : <><span className="spinner" /> connecting to browser…</>)
+                    : "No recorded browser view for this agent."}</div>}
+        {live && src && box && box.width > 0 && (
           <div style={{ position: "absolute", left: `${(box.x / vp.width) * 100}%`, top: `${(box.y / vp.height) * 100}%`,
             width: `${(box.width / vp.width) * 100}%`, height: `${(box.height / vp.height) * 100}%`,
             border: `2px solid ${info?.color ?? "#22d3ee"}`, borderRadius: 4, boxShadow: `0 0 0 9999px rgba(5,7,11,.35)`,
@@ -65,7 +68,7 @@ export function Operations({ client, state, agents, onStop }:
   { client: AutoRedClient; state: MissionState; agents: AgentInfo[]; onStop: () => void }) {
   const [expanded, setExpanded] = useState<AgentId | null>(null);
   const info = useMemo(() => Object.fromEntries(agents.map((a) => [a.id, a])), [agents]);
-  const live = !["completed", "aborted", "failed", "created"].includes(state.phase);
+
   const feed = state.timeline.filter((e) => !["browser.action"].includes(e.type)).slice(-80).reverse();
   const shownBrowsers = (expanded ? [expanded] : [...SPECIALIST_IDS]) as AgentId[];
 
@@ -73,8 +76,8 @@ export function Operations({ client, state, agents, onStop }:
     <>
       <Section title="Live Operations" sub={`Mission ${state.mission_id || "—"} · ${state.target_id}`}
         actions={<div className="row" style={{ gap: 10 }}>
-          <Pill color={live ? "var(--accent)" : "var(--muted)"}>{state.phase}</Pill>
-          {live && <button className="btn sm danger" onClick={onStop}>■ Stop</button>}
+          <Pill color={state.live ? "var(--accent)" : "var(--muted)"}>{state.live ? "● LIVE" : "recorded"} · {state.phase}</Pill>
+          {state.live && <button className="btn sm danger" onClick={onStop}>■ Stop</button>}
         </div>}>
         {/* agent strip */}
         <div className="card pad" style={{ marginBottom: 14 }}>
@@ -97,10 +100,12 @@ export function Operations({ client, state, agents, onStop }:
       </Section>
 
       <div className={`browser-grid ${expanded ? "one" : ""}`}>
-        {shownBrowsers.map((id) => (
-          <LiveBrowser key={id} client={client} missionId={state.mission_id} agent={state.agents[id]} info={info[id]}
-            expanded={expanded === id} onToggle={() => setExpanded((x) => (x === id ? null : id))} />
-        ))}
+        {shownBrowsers.map((id) => {
+          const shot = Object.values(state.findings).find((f) => f.category === id && f.evidence.some((e) => e.kind === "screenshot" && e.artifact))?.evidence.find((e) => e.kind === "screenshot")?.artifact;
+          return <LiveBrowser key={id} client={client} missionId={state.mission_id} agent={state.agents[id]} info={info[id]}
+            live={state.live} recordedShot={shot ?? undefined}
+            expanded={expanded === id} onToggle={() => setExpanded((x) => (x === id ? null : id))} />;
+        })}
       </div>
 
       <Section title="Activity feed">

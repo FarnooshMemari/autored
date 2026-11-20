@@ -8,6 +8,7 @@ import { Empty, Pill, Section } from "../components/common";
 const MODES = [
   { id: "assess", name: "Fixed assessment", desc: "Full fixed-probe suite across all four categories." },
   { id: "adaptive", name: "Adaptive (LLM)", desc: "LLM planner proposes probes and revises on evidence." },
+  { id: "hybrid", name: "Hybrid", desc: "Fixed suite first, then adaptive follow-ups." },
   { id: "connectivity", name: "Connectivity only", desc: "Discover + one benign message. No security probes." },
 ];
 
@@ -61,7 +62,7 @@ export function MissionControl({ client, targets, agents, onOpen }:
               <input value={operator} onChange={(e) => setOperator(e.target.value)} placeholder="your name / id" />
             </label>
             <div className="field">Mode
-              <div className="grid" style={{ gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+              <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 {MODES.map((m) => (
                   <button key={m.id} className={`btn sm ${mode === m.id ? "primary" : "ghost"}`} onClick={() => setMode(m.id)}
                     title={m.desc} style={{ textAlign: "left", padding: "10px 12px", height: "100%" }}>

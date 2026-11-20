@@ -23,6 +23,7 @@ class CreateMission(BaseModel):
     operator: str = Field(min_length=1)
     authorization_acknowledged: bool = Field(description="Operator confirms written authorization for this target")
     agents: list[str] | None = Field(default=None, description="Subset of specialists; default all four")
+    mode: str = Field(default="assess", description="assess | adaptive | hybrid | connectivity")
 
 
 class EmergencyStopBody(BaseModel):
@@ -77,6 +78,36 @@ def create_app(settings: Settings | None = None, scopes: ScopeRegistry | None = 
             raise HTTPException(404, "mission not found")
         return m
 
+    def resolve(mid: str):
+        """Return (snapshot, live). Live missions come from memory; completed/
+        interrupted ones are rebuilt from the durable event log + store."""
+        from ..missions.snapshot import MissionSnapshot
+        from ..reporting.report import replay
+        m = manager.missions.get(mid)
+        if m is not None:
+            return m.snapshot, m.active
+        if not re.fullmatch(r"M-[\w-]+", mid):
+            raise HTTPException(400, "bad mission id")
+        row = manager.store.get_mission(mid) if manager.store else None
+        ev_path = settings.runs_dir / mid / "events.jsonl"
+        if ev_path.is_file():
+            snap, _ = replay(ev_path)
+            if row:
+                snap.target_id, snap.operator = row["target_id"], row["operator"]
+            return snap, False
+        if row:   # store row but no event log: minimal reconstruction from stored findings
+            from ..events.schema import FindingPayload, MissionPhase
+            snap = MissionSnapshot.new(mid, row["target_id"], row["operator"])
+            snap.phase = MissionPhase(row["phase"])
+            for f in manager.store.get_findings(mid):
+                fp = FindingPayload(finding_id=f["finding_id"], probe_id=f["probe_id"], category=f["category"],
+                                    title=f["title"], severity=f["severity"], status=f["status"],
+                                    reproductions=f["reproductions"], attempts=f["attempts"],
+                                    prompt=f["prompt"] or "", evidence=f["evidence"])
+                snap.findings[f["finding_id"]] = fp
+            return snap, False
+        raise HTTPException(404, "mission not found")
+
     api = Depends(auth)
 
     @app.get("/api/health")
@@ -103,7 +134,7 @@ def create_app(settings: Settings | None = None, scopes: ScopeRegistry | None = 
     @app.post("/api/missions", status_code=201, response_model=MissionSnapshot, dependencies=[api])
     async def create(body: CreateMission):
         try:
-            m = manager.create(body.target_id, body.operator, body.authorization_acknowledged, body.agents)
+            m = manager.create(body.target_id, body.operator, body.authorization_acknowledged, body.agents, mode=body.mode)
         except MissionRejected as e:
             raise HTTPException(409, str(e))
         return m.snapshot
@@ -123,17 +154,27 @@ def create_app(settings: Settings | None = None, scopes: ScopeRegistry | None = 
                                    "confirmed": row["confirmed"], "source": "stored"})
         return sorted(live + stored, key=lambda m: m["created_at"], reverse=True)
 
-    @app.get("/api/missions/{mid}", response_model=MissionSnapshot, dependencies=[api])
+    @app.get("/api/missions/{mid}", dependencies=[api])
     async def get_mission(mid: str):
-        return mission_or_404(mid).snapshot
+        snap, live = resolve(mid)
+        return {**snap.model_dump(mode="json"), "live": live}
 
     @app.get("/api/missions/{mid}/events", response_model=list[Event], dependencies=[api])
     async def events(mid: str, since: int = 0):
-        return [e for e in mission_or_404(mid).ctx.log.events if e.seq > since]
+        m = manager.missions.get(mid)
+        if m is not None:
+            return [e for e in m.ctx.log.events if e.seq > since]
+        if not re.fullmatch(r"M-[\w-]+", mid):
+            raise HTTPException(400, "bad mission id")
+        ev_path = settings.runs_dir / mid / "events.jsonl"
+        if not ev_path.is_file():
+            raise HTTPException(404, "no event log")
+        return [e for e in (Event.model_validate_json(l) for l in ev_path.read_text().splitlines() if l.strip()) if e.seq > since]
 
     @app.get("/api/missions/{mid}/findings", response_model=list[FindingPayload], dependencies=[api])
     async def findings(mid: str):
-        return list(mission_or_404(mid).snapshot.findings.values())
+        snap, _ = resolve(mid)
+        return list(snap.findings.values())
 
     @app.get("/api/missions/{mid}/report", dependencies=[api])
     async def mission_report(mid: str):
@@ -180,18 +221,17 @@ def create_app(settings: Settings | None = None, scopes: ScopeRegistry | None = 
 
     @app.get("/api/missions/{mid}/agents/{agent}/frame.jpg", dependencies=[api])
     async def frame(mid: str, agent: str):
-        mission_or_404(mid)
-        f = frames.latest(mid, agent)
+        f = frames.latest(mid, agent)   # live only; historical missions use recorded screenshots
         if f is None:
-            raise HTTPException(404, "no frame yet")
+            raise HTTPException(404, "no live frame (mission not active, or not started)")
         return Response(f, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
 
     @app.get("/api/missions/{mid}/artifacts/{name}", dependencies=[api])
     async def artifact(mid: str, name: str):
-        m = mission_or_404(mid)
-        if not re.fullmatch(r"[\w.-]+\.png", name):
-            raise HTTPException(400, "bad artifact name")
-        p = m.ctx.artifacts_dir / name
+        # evidence lives on disk under runs/<mid>/artifacts; served for live AND historical missions
+        if not re.fullmatch(r"M-[\w-]+", mid) or not re.fullmatch(r"[\w.-]+\.png", name):
+            raise HTTPException(400, "bad id or artifact name")
+        p = settings.runs_dir / mid / "artifacts" / name
         if not p.is_file():
             raise HTTPException(404, "artifact not found")
         return FileResponse(p)

@@ -24,6 +24,7 @@ export class AutoRedClient {
   missions = () => this.req<any[]>("/api/missions");
   mission = (id: string) => this.req<any>(`/api/missions/${id}`);
   missionReport = (id: string) => this.req<any>(`/api/missions/${id}/report`);
+  events = (id: string) => this.req<AutoRedEvent[]>(`/api/missions/${id}/events`);
   experiments = () => this.req<Record<string, any>>("/api/experiments");
   findings = (id: string) => this.req<FindingPayload[]>(`/api/missions/${id}/findings`);
   createMission = (body: { target_id: string; operator: string; authorization_acknowledged: boolean; agents?: string[] }) =>

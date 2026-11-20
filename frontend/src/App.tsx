@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AutoRedClient } from "./api/client";
 import type { AgentInfo, TargetInfo } from "./contracts/events";
 import { useMission } from "./state/useMission";
@@ -26,7 +26,7 @@ export default function App() {
   const [targets, setTargets] = useState<TargetInfo[]>([]);
   const [health, setHealth] = useState<any>(null);
   const [missionId, setMissionId] = useState<string | null>(new URLSearchParams(location.search).get("mission"));
-  const { state } = useMission(client, missionId);
+  const { state, error: missionErr, loading: missionLoading } = useMission(client, missionId);
 
   useEffect(() => {
     client.agents().then(setAgents).catch(() => {});
@@ -39,6 +39,13 @@ export default function App() {
   const stop = () => missionId && client.stopMission(missionId).catch(() => {});
   const estop = () => client.emergencyStop("operator pressed emergency stop in dashboard").catch(() => {});
 
+  const missionPane = (node: ReactNode) => {
+    if (!missionId) return <div className="card"><div className="empty">No mission selected.<br /><span className="faint">Launch a new assessment or open one from Mission Control.</span></div></div>;
+    if (missionLoading) return <div className="card"><div className="empty"><span className="spinner" /> Loading mission…</div></div>;
+    if (missionErr) return <div className="card"><div className="empty"><span className="sev-high">Failed to load mission</span><br /><span className="faint">{missionErr}</span></div></div>;
+    if (!state.mission_id) return <div className="card"><div className="empty">This mission has no recorded data.</div></div>;
+    return node;
+  };
   const grouped = NAV.reduce<Record<string, typeof NAV>>((a, n) => ((a[n.sect] ??= []).push(n), a), {});
 
   return (
@@ -72,12 +79,8 @@ export default function App() {
       </nav>
       <main className="main">
         {view === "control" && <MissionControl client={client} targets={targets} agents={agents} onOpen={openMission} />}
-        {view === "ops" && (missionId && state.mission_id
-          ? <Operations client={client} state={state} agents={agents} onStop={stop} />
-          : <div className="card"><div className="empty">No mission open. Launch one from Mission Control.</div></div>)}
-        {view === "findings" && (missionId && state.mission_id
-          ? <Findings client={client} state={state} />
-          : <div className="card"><div className="empty">Open a mission to see findings.</div></div>)}
+        {view === "ops" && missionPane(<Operations client={client} state={state} agents={agents} onStop={stop} />)}
+        {view === "findings" && missionPane(<Findings client={client} state={state} />)}
         {view === "experiments" && <Experiments client={client} />}
         {view === "history" && <History client={client} onOpen={openMission} />}
         {view === "health" && <SystemHealth client={client} />}

@@ -34,7 +34,8 @@ async def test_health_is_public_but_everything_else_requires_token(api_server):
         # with the token, auth passes (not 401; may be 404/409 for missing resources)
         h = {"Authorization": "Bearer s3cret"}
         assert (await c.get("/api/agents", headers=h)).status_code == 200
-        assert (await c.get("/api/missions/NOPE/findings", headers=h)).status_code == 404
+        assert (await c.get("/api/missions/M-missing-id/findings", headers=h)).status_code == 404   # well-formed, absent
+        assert (await c.get("/api/missions/NOPE/findings", headers=h)).status_code == 400              # bad id format
 
 
 async def test_wrong_token_rejected(api_server):

@@ -46,6 +46,8 @@ export interface MissionState {
   last_seq: number;
   /** UI-only: bounded event history for the mission timeline. */
   timeline: AutoRedEvent[];
+  /** true = active mission (live frames/events); false = recorded/historical. */
+  live: boolean;
 }
 
 export const TIMELINE_LIMIT = 1000;
@@ -57,7 +59,7 @@ export function fromSnapshot(snap: Omit<MissionState, "timeline" | "agents"> & {
     const a = snap.agents[id];
     agents[id] = { ...a, agent_id: id, cue: cueFor(a.status) };
   }
-  return { ...snap, agents, timeline: [] };
+  return { ...snap, agents, timeline: [], live: (snap as any).live ?? false };
 }
 
 export function emptyMission(mission_id: string): MissionState {
@@ -65,7 +67,7 @@ export function emptyMission(mission_id: string): MissionState {
   for (const id of ALL_AGENT_IDS)
     agents[id] = { agent_id: id, status: "idle", activity: "", task_id: null, url: null, context_id: null, probes_run: 0, tasks: [], cue: "idle" };
   return { mission_id, target_id: "", operator: "", phase: "created", message: "", agents, findings: {},
-           capabilities: null, plan: null, summary: null, last_seq: 0, timeline: [] };
+           capabilities: null, plan: null, summary: null, last_seq: 0, timeline: [], live: false };
 }
 
 export function reduce(s: MissionState, e: AutoRedEvent): MissionState {
