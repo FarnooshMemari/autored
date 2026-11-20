@@ -3,7 +3,7 @@
 _Living checkpoint. Update after each increment so work resumes after interruption._
 
 ## Last successful commit
-`7e3b54e` (CI green) — hybrid strategy. Hardening phase: F (crash recovery), deception +/-, security, visual QA, durable history, hybrid all done + CI-green.
+`adbd556` (CI green). **Hardening phase complete:** Exp F crash recovery (live kill -9), deception +/- cases, tester-controlled ground truth, fixed/adaptive/hybrid (Exp B+), security tests, visual QA (responsive + controls verified), durable history, verification matrix.
 
 ## Baseline that must be preserved (verified working)
 Backend 46 tests + frontend 6 green; M1–M5 shipped: target-independent discovery,
@@ -30,7 +30,6 @@ Is it actually working (not just code)? Simulated vs real success? False positiv
 Generalizes beyond the dev target? Simpler/more reliable option? Evidence strong enough?
 
 ## Exact next action
-Finalize: document the fixed/adaptive/hybrid experiment (B+) result, update the
-delivery report + verification matrix, final CI. Remaining (non-blocking): re-drive
-an in-flight mission after crash (currently reconciles state only); stronger planner;
-external authorized target.
+Hardening phase delivered and CI-green. Remaining (non-blocking, honest limitations):
+re-drive an in-flight mission after crash (currently reconciles state only); a stronger
+planner; an authorized external target; multi-role RBAC.
