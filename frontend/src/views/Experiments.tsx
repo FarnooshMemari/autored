@@ -11,6 +11,7 @@ export function Experiments({ client }: { client: AutoRedClient }) {
   if (!data) return <Section title="Experiment Analytics"><div className="card"><Empty><span className="spinner" /> loading…</Empty></div></Section>;
 
   const bva = data.baseline_vs_adaptive?.results;
+  const three = data.three_strategies?.analysis;
   const rep = data.repeated_trials;
   const vvh = data.vuln_vs_hardened;
 
@@ -29,6 +30,22 @@ export function Experiments({ client }: { client: AutoRedClient }) {
         <div className="card pad" style={{ background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.25)", marginTop: 10, fontSize: 12.5 }}>
           <strong className="sev-medium">Honest result:</strong> the fixed baseline found more confirmed vulnerabilities than the adaptive planner;
           adaptive was more probe-efficient but did not discover anything the baseline missed. We do not claim adaptive improves discovery.
+        </div>
+      </div>}
+
+      {three && <div className="card pad" style={{ marginBottom: 14 }}>
+        <div className="row between" style={{ marginBottom: 10 }}><strong>Fixed vs Adaptive vs Hybrid</strong>
+          <span className="sub">deduplicated by vulnerability class</span></div>
+        <table><thead><tr><th>Strategy</th><th>Confirmed</th><th>Vuln classes</th><th>Probes</th><th>LLM</th><th>Duration</th></tr></thead>
+          <tbody>{["assess","adaptive","hybrid"].map((m) => three[m] && (
+            <tr key={m}><td style={{textTransform:"capitalize"}}>{m==="assess"?"Fixed":m}</td>
+              <td className="st-confirmed">{three[m].n_confirmed}</td>
+              <td className="muted">{(three[m].classes||[]).join(", ")||"—"}</td>
+              <td>{three[m].probes}</td><td>{three[m].llm_calls}</td><td>{three[m].duration_s}s</td></tr>
+          ))}</tbody></table>
+        <div className="card pad" style={{ background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.25)", marginTop: 10, fontSize: 12.5 }}>
+          <strong className="sev-medium">Honest result:</strong> hybrid confirmed one extra probe but of the <em>same</em> vulnerability
+          class — deduplicated by class, hybrid = fixed coverage at higher cost. No evidence adaptive/hybrid improves discovery here.
         </div>
       </div>}
 

@@ -197,3 +197,25 @@ durable finding persistence (SQLite) that survives process restart. **Not yet do
 resuming an *in-flight* mission after a process crash (the event log + store preserve
 results, but a half-finished mission is not re-driven). This is the main open reliability
 item, recorded in AUTONOMOUS_PROGRESS.md.
+
+## Experiment B+ — Fixed vs Adaptive vs Hybrid
+`backend/experiments/three_strategies.py` · vulnerable config · `pilots/experiments/three_strategies.json`.
+
+| Strategy | Confirmed (probes) | Vulnerability **classes** | Probes | LLM calls | Duration |
+|---|---|---|---|---|---|
+| Fixed | 4 (PI-001, PI-003, TP-001, TP-MT1) | PI, tool_permission | 22 | 0 | 232 s |
+| Adaptive | 0 | — | 6 | 2 | 65 s |
+| **Hybrid** | **5** (fixed 4 + AD-06) | **PI, tool_permission** | 37 | 1 | 334 s |
+
+**Honest conclusion.** Hybrid confirmed one *more probe* than fixed (AD-06, an
+adaptively-generated refund probe), **but AD-06 is the same vulnerability class
+(tool_permission) as TP-001** — so, **deduplicated by underlying vulnerability (not
+probe title), hybrid discovered the same classes as fixed**, at ~1.7× the probes and
+time. The adaptive phase added a redundant confirmation, not a new vulnerability. This
+is consistent with Experiment B: on this small, well-covered target there is no evidence
+that adaptive or hybrid **improves vulnerability-class discovery** over the fixed
+baseline; their cost is higher. We therefore recommend adaptive/hybrid as a
+**complement for targets with large or unknown attack surfaces** (where fixed probes
+under-cover), not a replacement — and that remains unproven here and is future work.
+This result also shows why **deduplication by vulnerability class** matters: a raw
+"confirmed count" would overstate hybrid's advantage.
