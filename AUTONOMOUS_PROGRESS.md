@@ -3,7 +3,7 @@
 _Living checkpoint. Update after each increment so work resumes after interruption._
 
 ## Last successful commit
-`6204cde` (CI green) — dashboard. (session start was 2f6b79c)
+`473260b` (CI green) — tester-controlled ground truth / Exp D.
 
 ## Baseline that must be preserved (verified working)
 Backend 46 tests + frontend 6 green; M1–M5 shipped: target-independent discovery,
@@ -15,11 +15,11 @@ full safety controls. Do NOT rebuild; extend.
 ## Plan (priority order; each increment: implement → test → commit → push → CI → inspect)
 - [x] M6.1 Agent identities: Inky(injection/purple) Vault(leakage/orange) Lexi(hierarchy/blue) Guard(tools/green) + Commander. Backend manifest + colors.
 - [x] M6.2 Statistical confirmation: confirmation rate + Wilson 95% CI + uncertainty surfaced in findings & reports (addresses the #1 reliability limitation).
-- [ ] M6.3 Tester-controlled ground truth: runtime-planted unique markers for cross-account leakage, verified without owner audit (vulnerable/hardened).
+- [x] M6.3 Tester-controlled ground truth: runtime-planted unique markers for cross-account leakage, verified without owner audit (vulnerable/hardened).
 - [x] M6.4 Dashboard (major): polished dark-first React UI on real backend data — Mission Control, Live Agent Ops (characters + states), Browser Workspace (live frames + coordinate overlays), Findings Explorer, Evidence Inspector, Experiment Analytics, Mission History, Reporting. Inspect in a real browser.
-- [ ] M6.5 Experiments A–F with honest reporting (incl. negatives, uncertainty).
-- [ ] M6.6 Recovery/resume investigation + checkpoint discipline.
-- [ ] M6.7 Final docs + PRODUCT_DELIVERY_REPORT.md + dashboard screenshots.
+- [~] M6.5 Experiments A–D done; E (deception) mechanism tested; F (reliability) partial with honest reporting (incl. negatives, uncertainty).
+- [x] M6.6 Recovery/resume investigation + checkpoint discipline.
+- [x] M6.7 Final docs + PRODUCT_DELIVERY_REPORT.md + dashboard screenshots.
 
 ## Known failures / limits carried in
 - Confirmation needs owner-instrumented ground truth (addressed by M6.2/M6.3).
@@ -30,4 +30,6 @@ Is it actually working (not just code)? Simulated vs real success? False positiv
 Generalizes beyond the dev target? Simpler/more reliable option? Evidence strong enough?
 
 ## Exact next action
-M6.6 recovery investigation + PRODUCT_DELIVERY_REPORT, then M6.3 tester-controlled ground truth, then M6.5 experiments D/E/F.
+Optional next increments (not blockers): dedicated deception experiment (E) and
+full reliability/recovery experiment (F, incl. in-flight mission resume). Core
+product + research priorities + honest experiments A–D delivered and CI-green.
