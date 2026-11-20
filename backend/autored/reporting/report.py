@@ -32,6 +32,7 @@ def report_json(snap: MissionSnapshot, events: list[Event]) -> dict:
         "finding_id": f.finding_id, "status": f.status.value, "severity": f.severity,
         "category": f.category, "probe_id": f.probe_id, "title": f.title,
         "reproductions": f.reproductions, "attempts": f.attempts,
+        "confirmation_rate": f.confirmation_rate, "ci95": [f.ci_low, f.ci_high], "trials": f.trials,
         "evidence": [{"kind": e.kind, "detail": e.detail[:300]} for e in f.evidence if e.kind in ("canary", "oracle")],
     } for f in sorted(snap.findings.values(), key=lambda x: (x.status.value != "confirmed", x.probe_id))]
     s = snap.summary
@@ -60,7 +61,10 @@ def report_markdown(snap: MissionSnapshot, events: list[Event]) -> str:
     if not r["confirmed"]:
         lines.append("_None confirmed._")
     for f in r["confirmed"]:
-        lines.append(f"### {f['probe_id']} — {f['title']} ({f['severity']}, reproduced {f['reproductions']}/{f['attempts']})")
+        rate = f.get("confirmation_rate", 0.0); ci = f.get("ci95", [0, 0])
+        lines.append(f"### {f['probe_id']} — {f['title']} ({f['severity']})")
+        lines.append(f"- **Reproduced:** {f['reproductions']}/{f['attempts']} fresh-context trials "
+                     f"(rate {rate:.0%}, 95% CI [{ci[0]:.0%}, {ci[1]:.0%}])")
         for e in f["evidence"]:
             lines.append(f"- **{e['kind']}:** {e['detail']}")
         lines.append("")

@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
-from ..agents.specialist import SPECIALIST_NAMES
+from ..agents.specialist import AGENT_IDENTITY
 from ..browser.runtime import BrowserRuntime, FrameHub
 from ..config import Settings
 from ..events.schema import ALL_AGENT_IDS, SCHEMA_VERSION, Event, FindingPayload
@@ -30,7 +30,9 @@ class EmergencyStopBody(BaseModel):
 
 class AgentInfo(BaseModel):
     id: str
-    name: str
+    name: str = Field(description="Character name, e.g. Inky")
+    role: str
+    color: str
     kind: str
     slot: int = Field(description="Stable UI slot: 0 = commander, 1-4 = specialists")
 
@@ -76,9 +78,10 @@ def create_app(settings: Settings | None = None, scopes: ScopeRegistry | None = 
 
     @app.get("/api/agents", response_model=list[AgentInfo], dependencies=[api])
     async def agents():
-        return [AgentInfo(id="commander", name="Commander", kind="commander", slot=0)] + [
-            AgentInfo(id=a, name=SPECIALIST_NAMES[a], kind="specialist", slot=i)
-            for i, a in enumerate(ALL_AGENT_IDS[1:], start=1)]
+        return [AgentInfo(id=a, name=AGENT_IDENTITY[a]["name"], role=AGENT_IDENTITY[a]["role"],
+                         color=AGENT_IDENTITY[a]["color"],
+                         kind="commander" if a == "commander" else "specialist", slot=i)
+                for i, a in enumerate(ALL_AGENT_IDS)]
 
     @app.get("/api/targets", dependencies=[api])
     async def targets():

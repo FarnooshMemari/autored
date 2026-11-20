@@ -13,7 +13,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 AgentId = Literal["commander", "injection", "leakage", "hierarchy", "tools"]
 SPECIALIST_IDS: tuple[AgentId, ...] = ("injection", "leakage", "hierarchy", "tools")
@@ -182,6 +182,13 @@ class FindingPayload(BaseModel):
     evidence: list[Evidence]
     attempts: int = 1
     reproductions: int = 0
+    # statistical confirmation: of `trials` independent fresh-context runs, `successes`
+    # reproduced strong evidence. rate + 95% Wilson interval report the uncertainty.
+    trials: int = 0
+    successes: int = 0
+    confirmation_rate: float = 0.0
+    ci_low: float = 0.0
+    ci_high: float = 0.0
     prompt: str = ""
 
 

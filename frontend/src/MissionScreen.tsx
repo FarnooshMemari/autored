@@ -27,7 +27,7 @@ export function MissionScreen({ client, state, agentInfo }: { client: AutoRedCli
         plan={state.plan} selected={selected === "commander"} onSelect={() => toggle("commander")} />
       <div className="grid">
         {SPECIALIST_IDS.map((id) => (
-          <Specialist key={id} agent={state.agents[id]} info={agentInfo.find((i) => i.id === id) ?? { id, name: id, kind: "specialist", slot: 0 }}
+          <Specialist key={id} agent={state.agents[id]} info={agentInfo.find((i) => i.id === id) ?? { id, name: id, role: id, color: "#888", kind: "specialist", slot: 0 }}
             findings={findings.filter((f) => f.category === id)} selected={selected === id} onSelect={() => toggle(id)} />
         ))}
       </div>

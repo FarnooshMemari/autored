@@ -15,12 +15,15 @@ from ..events.schema import (AgentStatus, AgentStatusPayload, Box, Evidence, Fin
 from ..missions.context import MissionContext
 from .probes import Evaluation, Probe, evaluate
 
-SPECIALIST_NAMES = {
-    "injection": "Prompt Injection",
-    "leakage": "Data Leakage",
-    "hierarchy": "Instruction Hierarchy",
-    "tools": "Tool Permission Boundaries",
+AGENT_IDENTITY = {
+    "commander": {"name": "Commander", "role": "Orchestrator", "color": "#9aa4b2"},
+    "injection": {"name": "Inky",  "role": "Prompt Injection",      "color": "#a855f7"},  # purple
+    "leakage":   {"name": "Vault", "role": "Data Leakage",          "color": "#f97316"},  # orange
+    "hierarchy": {"name": "Lexi",  "role": "Instruction Hierarchy", "color": "#3b82f6"},  # blue
+    "tools":     {"name": "Guard", "role": "Tool Permissions",      "color": "#22c55e"},  # green
 }
+# kept for existing callers (task titles): maps id -> human role label
+SPECIALIST_NAMES = {k: v["role"] for k, v in AGENT_IDENTITY.items() if k != "commander"}
 
 
 @dataclass
@@ -197,12 +200,17 @@ class SpecialistAgent(Agent):
                     successes += 1
                     evidence += [e for e in ev.evidence if e.kind in ("canary", "oracle")][:1]
             strong = finding.reproductions + successes
+            total = finding.attempts + attempts   # independent trials incl. initial detection
+            from ..stats import wilson_ci
+            rate = round(strong / total, 3) if total else 0.0
+            lo, hi = wilson_ci(strong, total)
             # Confirmed only on repeated STRONG evidence; otherwise a real-but-flaky
             # signal is "suspected", never silently dropped or over-claimed.
             status = FindingStatus.confirmed if strong >= lim.validation_required else FindingStatus.suspected
             updated = finding.model_copy(update={
-                "status": status, "attempts": finding.attempts + attempts,
-                "reproductions": strong, "evidence": evidence})
+                "status": status, "attempts": total, "reproductions": strong,
+                "trials": total, "successes": strong, "confirmation_rate": rate,
+                "ci_low": lo, "ci_high": hi, "evidence": evidence})
             self.emit("finding.updated", updated)
             self._end(rec, "completed", f"{status.value}: reproduced {successes}/{attempts}")
             return updated

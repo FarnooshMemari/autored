@@ -4,7 +4,7 @@
  * Keep in sync; the parity test in state/missionReducer.test.ts replays a
  * real backend event log through this contract.
  */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export type AgentId = "commander" | "injection" | "leakage" | "hierarchy" | "tools";
 export const SPECIALIST_IDS = ["injection", "leakage", "hierarchy", "tools"] as const;
@@ -40,6 +40,11 @@ export interface FindingPayload {
   evidence: Evidence[];
   attempts: number;
   reproductions: number;
+  trials: number;
+  successes: number;
+  confirmation_rate: number;
+  ci_low: number;
+  ci_high: number;
   prompt: string;
 }
 
@@ -105,7 +110,7 @@ export type AutoRedEvent = {
   };
 }[EventType];
 
-export interface AgentInfo { id: AgentId; name: string; kind: "commander" | "specialist"; slot: number }
+export interface AgentInfo { id: AgentId; name: string; role: string; color: string; kind: "commander" | "specialist"; slot: number }
 
 export interface TargetInfo {
   id: string;

@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AutoRed event stream",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "envelope": {
     "description": "Wire envelope. `seq` is per-mission, strictly increasing, gap-free.",
     "properties": {
       "v": {
-        "default": 2,
+        "default": 3,
         "title": "V",
         "type": "integer"
       },
@@ -775,6 +775,31 @@
           "default": 0,
           "title": "Reproductions",
           "type": "integer"
+        },
+        "trials": {
+          "default": 0,
+          "title": "Trials",
+          "type": "integer"
+        },
+        "successes": {
+          "default": 0,
+          "title": "Successes",
+          "type": "integer"
+        },
+        "confirmation_rate": {
+          "default": 0.0,
+          "title": "Confirmation Rate",
+          "type": "number"
+        },
+        "ci_low": {
+          "default": 0.0,
+          "title": "Ci Low",
+          "type": "number"
+        },
+        "ci_high": {
+          "default": 0.0,
+          "title": "Ci High",
+          "type": "number"
         },
         "prompt": {
           "default": "",
