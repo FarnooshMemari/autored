@@ -13,7 +13,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 AgentId = Literal["commander", "injection", "leakage", "hierarchy", "tools"]
 SPECIALIST_IDS: tuple[AgentId, ...] = ("injection", "leakage", "hierarchy", "tools")
@@ -48,16 +48,19 @@ class MissionPhase(str, Enum):
 
 
 class Verdict(str, Enum):
-    vulnerable = "vulnerable"        # strong evidence (canary / oracle)
-    not_observed = "not_observed"    # no evidence of the weakness
-    inconclusive = "inconclusive"    # ambiguous signal, needs a human
+    vulnerable = "vulnerable"        # strong evidence (synthetic canary / audit oracle)
+    suspected = "suspected"          # weak signal, no strong evidence: needs a human
+    not_observed = "not_observed"    # tested cleanly; the weakness was not observed (passed)
+    inconclusive = "inconclusive"    # could not be evaluated reliably (e.g. oracle unavailable)
+    not_applicable = "not_applicable"  # probe not runnable on this target (e.g. tool absent/unauthorized)
     error = "error"
 
 
 class FindingStatus(str, Enum):
-    candidate = "candidate"
-    confirmed = "confirmed"          # reproduced with strong evidence
-    inconclusive = "inconclusive"    # did not reproduce reliably / weak evidence
+    candidate = "candidate"          # observed once, pending independent reproduction
+    confirmed = "confirmed"          # strong evidence reproduced in fresh contexts
+    suspected = "suspected"          # real signal, not reliably reproduced to the confirm bar
+    inconclusive = "inconclusive"    # could not be verified (no strong evidence available)
 
 
 # ---------------------------------------------------------------- payloads
@@ -70,10 +73,13 @@ class MissionStatusPayload(BaseModel):
 class MissionSummaryPayload(BaseModel):
     phase: MissionPhase
     confirmed: int
-    inconclusive: int
-    probes_run: int
+    suspected: int = 0
+    inconclusive: int = 0
+    passed: int = 0              # probes that tested cleanly (not_observed)
+    not_applicable: int = 0     # probes skipped as not runnable on this target
+    probes_run: int = 0
     agent_errors: int = 0
-    duration_s: float
+    duration_s: float = 0.0
     reason: str = ""
 
 
@@ -112,16 +118,23 @@ class PlanPayload(BaseModel):
     skipped: dict[str, str] = Field(default_factory=dict, description="probe_id -> reason")
 
 
+class Box(BaseModel):
+    x: float; y: float; width: float; height: float  # page coords, for element-following animations
+
+
 class BrowserNavigatedPayload(BaseModel):
     url: str
     title: str = ""
     context_id: str = Field(description="Isolated BrowserContext id; changes on fresh-context replays")
+    viewport: dict[str, int] | None = None  # {width, height}
 
 
 class BrowserActionPayload(BaseModel):
     action: Literal["click", "fill", "press", "wait", "read"]
     selector: str
     value_preview: str = ""
+    frame: str | None = None     # iframe selector when the element is inside an iframe
+    box: Box | None = None       # bounding box of the target element, if known
 
 
 class BrowserBlockedPayload(BaseModel):
@@ -142,6 +155,7 @@ class TestResponsePayload(BaseModel):
     response: str
     latency_ms: int
     attempt: int = 1
+    box: Box | None = None       # bounding box of the reply element, for reaction animations
 
 
 class TestVerdictPayload(BaseModel):

@@ -1,7 +1,7 @@
 # Event & API contract (for the visualization team)
 
 Canonical: `contracts/events.schema.json` (generated). TypeScript: `frontend/src/contracts/events.ts`.
-Schema version: **1** (`v` on every event).
+Schema version: **2** (`v` on every event).
 
 ## Envelope
 
@@ -24,17 +24,39 @@ Schema version: **1** (`v` on every event).
 | `task.completed` | specialist | `task_id`, `outcome`, `detail` | |
 | `commander.capabilities` | commander | `tools`, `selectors`, `raw_response` | discovery reveal |
 | `commander.plan` | commander | `assignments`, `skipped{probe: reason}` | plan board |
-| `browser.navigated` | any | `url`, `context_id` | address bar; context change = fresh session |
-| `browser.action` | any | `action` (fill/click/wait), `selector`, `value_preview` | typing/clicking motion |
+| `browser.navigated` | any | `url`, `context_id`, `viewport` {w,h} | address bar; viewport for overlays |
+| `browser.action` | any | `action`, `selector`, `value_preview`, `frame`, `box` {x,y,w,h} | typing/clicking motion; `box` follows the element |
 | `browser.blocked` | any | `url`, `reason` | safety indicator |
 | `test.started` | specialist | `probe_id`, `prompt`, `attempt` | speech bubble (outgoing) |
-| `test.response` | specialist | `response`, `latency_ms` | speech bubble (reply) |
-| `test.verdict` | specialist | `verdict` (vulnerable/not_observed/inconclusive/error), `rationale` | reaction |
+| `test.response` | specialist | `response`, `latency_ms`, `box` {x,y,w,h} | speech bubble anchored to the reply |
+| `test.verdict` | specialist/commander | `verdict` (see 5 states below), `rationale` | reaction |
 | `finding.candidate` | specialist | full finding, `status: candidate` | alert |
 | `finding.updated` | specialist | full finding, `status: confirmed/inconclusive`, `reproductions/attempts` | confirmation |
 | `log` | any | `level`, `message` | debug console |
 
 `attempt` > 1 means a validation replay in a fresh browser context.
+
+### Five evaluation states (`test.verdict.verdict` / `finding.status`)
+
+| verdict | finding status after validation | meaning |
+|---|---|---|
+| `vulnerable` | `confirmed` (reproduced) / `suspected` (flaky) | strong evidence: a seeded synthetic canary in the reply, or an audit-oracle record |
+| `suspected` | `suspected` | the model *claims* something, but no strong evidence — never counted as confirmed |
+| `not_observed` | — (passed) | tested cleanly; the weakness was not observed |
+| `inconclusive` | `inconclusive` | could not be evaluated reliably (e.g. audit oracle unavailable) |
+| `not_applicable` | — | probe not runnable on this target (tool absent/unauthorized); emitted for skipped probes |
+
+`mission.completed` carries tallies: `confirmed`, `suspected`, `inconclusive`,
+`passed`, `not_applicable`, `probes_run`.
+
+### Discovered chat config (`commander.capabilities.selectors`)
+`{input, send, send_mode ("click"|"enter"), assistant_message, frame}` — the
+interface AutoRed found (iframe, shadow DOM, launcher) with no target-specific code.
+
+### Coordinates for overlay animations
+`browser.navigated.viewport` gives the page size; `browser.action.box` and
+`test.response.box` give element bounding boxes in page coordinates, so animated
+characters can be positioned over the real composer and reply elements.
 
 ## Animation hooks
 

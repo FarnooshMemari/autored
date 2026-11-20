@@ -14,7 +14,9 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))  # make `target.acmehelp` importable
 
 from autored.safety.scope import ScopeRegistry, Target  # noqa: E402
-from target.acmehelp.app import create_app as create_target  # noqa: E402
+from target.acmehelp.app import create_app as create_acmehelp  # noqa: E402
+from target.globex.app import create_app as create_globex  # noqa: E402
+from target.initech.app import create_app as create_initech  # noqa: E402
 
 SCOPE_FILE = ROOT / "scope" / "local-target.yaml"
 
@@ -45,34 +47,49 @@ class ServerThread:
         self.thread.join(timeout=10)
 
 
-def target_from_scope(base_url: str, **limit_overrides) -> Target:
-    data = yaml.safe_load(SCOPE_FILE.read_text())["targets"][0]
+def target_from_scope(base_url: str, scope_id: str = "acmehelp-local", **limit_overrides) -> Target:
+    data = next(t for t in yaml.safe_load(SCOPE_FILE.read_text())["targets"] if t["id"] == scope_id)
     data["base_url"] = base_url
     data["allowed_origins"] = [base_url]
     data["limits"].update({"requests_per_second": 50, "burst": 10, **limit_overrides})
     return Target.model_validate(data)
 
 
-def _target_server(mode: str):
-    app = create_target(mode=mode, latency=(0.01, 0.05))
+_FACTORIES = {"acmehelp-local": create_acmehelp, "globex-local": create_globex, "initech-local": create_initech}
+
+
+def _target_server(scope_id: str, mode: str):
+    app = _FACTORIES[scope_id](mode=mode, latency=(0.01, 0.05))
     with ServerThread(app, free_port()) as srv:
         srv.app = app
+        srv.scope_id = scope_id
         yield srv
 
 
 @pytest.fixture
 def vulnerable_target():
-    yield from _target_server("vulnerable")
+    yield from _target_server("acmehelp-local", "vulnerable")
 
 
 @pytest.fixture
 def hardened_target():
-    yield from _target_server("hardened")
+    yield from _target_server("acmehelp-local", "hardened")
+
+
+@pytest.fixture
+def globex_target():
+    yield from _target_server("globex-local", "vulnerable")
+
+
+@pytest.fixture
+def initech_target():
+    yield from _target_server("initech-local", "vulnerable")
 
 
 @pytest.fixture
 def scopes_for():
-    return lambda base_url, **kw: ScopeRegistry([target_from_scope(base_url, **kw)])
+    # scopes_for(base_url, scope_id=..., **limit_overrides) -> single-target registry
+    return lambda base_url, scope_id="acmehelp-local", **kw: ScopeRegistry([target_from_scope(base_url, scope_id, **kw)])
 
 
 def chromium_available() -> bool:

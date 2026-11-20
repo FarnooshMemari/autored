@@ -6,12 +6,12 @@ assistant, plans, and delegates to four specialists (Prompt Injection, Data
 Leakage, Instruction Hierarchy, Tool Permission Boundaries). Each specialist
 drives its own isolated Chromium context. Every step streams over WebSockets.
 
-> **Status:** Milestone 1 (foundation + vertical slice) complete. See [docs/MILESTONES.md](docs/MILESTONES.md).
+> **Status:** Milestone 2 (target-independent discovery + generalization) complete. See [docs/MILESTONES.md](docs/MILESTONES.md).
 
 ```
 backend/    FastAPI + Playwright + agents        (Python 3.11+)
 frontend/   React/TS data layer + UI slot shell  (Node 18+)
-target/     AcmeHelp: self-hosted, deliberately vulnerable test target
+target/     3 self-hosted synthetic targets (AcmeHelp, Globex, Initech) + shared brain
 scope/      allowlist + authorization records (the only targets AutoRed may touch)
 contracts/  events.schema.json, the generated event contract
 docs/       ARCHITECTURE.md, EVENTS.md (for the visualization team), MILESTONES.md
@@ -83,19 +83,42 @@ without it, tool-boundary results can only be `inconclusive`, never `confirmed`.
 
 ## Current capabilities
 
-- Commander discovers a chat assistant on a logged-in page, verifies it with a real greeting, parses advertised tools, plans and delegates.
-- Four specialists run in parallel in isolated Chromium contexts with separate test accounts; candidates are replayed in fresh contexts before confirmation.
-- Evidence-based verdicts (synthetic canaries, test-oracle audit records); heuristics alone never confirm.
-- Ordered, persisted, resumable WebSocket event stream + live JPEG screencast per agent.
-- Safety: allowlist + authorization records, network-layer origin guard, rate limits, timeouts, concurrency caps, emergency stop.
+- **Target-independent discovery.** The Commander finds and drives a chat
+  assistant across different layouts with no per-target code: full-page chat,
+  widgets inside **iframes**, **open shadow DOM**, launcher buttons, dynamically
+  rendered UIs, textarea / input / contenteditable composers, send-by-button or
+  **Enter key**, and **streaming/async** replies. Selectors can be pinned in the
+  scope file as a manual fallback when auto-discovery fails.
+- **Four isolated specialists** run in parallel in separate Chromium contexts
+  with separate synthetic accounts and their own conversation history; each
+  reconstructs the discovered interface in its own context.
+- **Evidence-based, five-state evaluation:** `confirmed` (strong evidence —
+  seeded synthetic canary or audit-oracle record — reproduced in fresh contexts),
+  `suspected` (a model claim, not proof), `inconclusive` (could not evaluate),
+  `passed` (tested cleanly), `not_applicable` (not runnable here). A model's claim
+  is never treated as proof.
+- **Verified on 3 structurally different targets** (AcmeHelp full-page, Globex
+  iframe widget, Initech shadow-DOM) with the same orchestration core — see
+  [docs/TARGETS.md](docs/TARGETS.md).
+- Ordered, persisted, resumable WebSocket event stream + live JPEG screencast per
+  agent; **viewport + element bounding boxes** emitted so overlay animations can
+  follow real page elements.
+- Safety: allowlist + authorization records, network-layer origin guard, rate
+  limits, timeouts, configurable concurrency caps, emergency stop. Assisted-login
+  scaffold for operator-completed SSO/MFA (we never type credentials or bypass auth).
 
 ## Limitations
 
-- Validated only against the self-hosted AcmeHelp target (one UI layout, form login, synchronous replies).
-- Probe library is small (2–3 probes per category) and single-turn.
-- In-memory mission registry; single node.
-- Chromium only. Live view uses CDP screencast.
-- Frontend is a deliberately unstyled shell; visuals come from the design team via `frontend/src/integration/slots.tsx`.
+- Validated against **self-hosted synthetic targets only**. No third-party
+  production target has been tested; doing so requires verified authorization —
+  see [docs/EXTERNAL_TARGETS.md](docs/EXTERNAL_TARGETS.md).
+- Probe library is still small (2–3 probes per category) and mostly single-turn
+  (multi-turn history is tracked; multi-turn *probes* are M2b).
+- Assisted-login and streaming/async handling are implemented but exercised only
+  on synthetic targets; real SSO flows are unverified in CI.
+- In-memory mission registry; single node. Chromium only (live view uses CDP).
+- Frontend is a deliberately unstyled shell; visuals come from the design team via
+  `frontend/src/integration/slots.tsx`.
 
 ## Security notes
 

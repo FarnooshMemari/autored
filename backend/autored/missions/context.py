@@ -7,12 +7,11 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from ..browser.chat import ChatSelectors
 from ..browser.runtime import BrowserRuntime, FrameHub
 from ..events.bus import MissionEventLog
 from ..events.schema import Event
 from ..safety.limits import RateLimiter
-from ..safety.scope import Target
+from ..safety.scope import ChatHints, Target
 from .snapshot import MissionSnapshot
 
 
@@ -29,7 +28,7 @@ class MissionContext:
     snapshot: MissionSnapshot
     limiter: RateLimiter
     artifacts_dir: Path
-    chat_selectors: ChatSelectors | None = None
+    effective_hints: ChatHints | None = None   # discovered chat config, reused by specialists
     discovered_tools: list[str] = field(default_factory=list)
     abort_reason: str = ""
     _locks: dict[str, asyncio.Lock] = field(default_factory=lambda: defaultdict(asyncio.Lock))

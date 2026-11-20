@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AutoRed event stream",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "envelope": {
     "description": "Wire envelope. `seq` is per-mission, strictly increasing, gap-free.",
     "properties": {
       "v": {
-        "default": 1,
+        "default": 2,
         "title": "V",
         "type": "integer"
       },
@@ -166,11 +166,28 @@
           "title": "Confirmed",
           "type": "integer"
         },
+        "suspected": {
+          "default": 0,
+          "title": "Suspected",
+          "type": "integer"
+        },
         "inconclusive": {
+          "default": 0,
           "title": "Inconclusive",
           "type": "integer"
         },
+        "passed": {
+          "default": 0,
+          "title": "Passed",
+          "type": "integer"
+        },
+        "not_applicable": {
+          "default": 0,
+          "title": "Not Applicable",
+          "type": "integer"
+        },
         "probes_run": {
+          "default": 0,
           "title": "Probes Run",
           "type": "integer"
         },
@@ -180,6 +197,7 @@
           "type": "integer"
         },
         "duration_s": {
+          "default": 0.0,
           "title": "Duration S",
           "type": "number"
         },
@@ -191,10 +209,7 @@
       },
       "required": [
         "phase",
-        "confirmed",
-        "inconclusive",
-        "probes_run",
-        "duration_s"
+        "confirmed"
       ],
       "title": "MissionSummaryPayload",
       "type": "object"
@@ -427,6 +442,21 @@
           "description": "Isolated BrowserContext id; changes on fresh-context replays",
           "title": "Context Id",
           "type": "string"
+        },
+        "viewport": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Viewport"
         }
       },
       "required": [
@@ -434,6 +464,34 @@
         "context_id"
       ],
       "title": "BrowserNavigatedPayload",
+      "type": "object"
+    },
+    "Box": {
+      "properties": {
+        "x": {
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "title": "Y",
+          "type": "number"
+        },
+        "width": {
+          "title": "Width",
+          "type": "number"
+        },
+        "height": {
+          "title": "Height",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "title": "Box",
       "type": "object"
     },
     "BrowserActionPayload": {
@@ -457,6 +515,29 @@
           "default": "",
           "title": "Value Preview",
           "type": "string"
+        },
+        "frame": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frame"
+        },
+        "box": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Box"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -535,6 +616,17 @@
           "default": 1,
           "title": "Attempt",
           "type": "integer"
+        },
+        "box": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Box"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -548,8 +640,10 @@
     "Verdict": {
       "enum": [
         "vulnerable",
+        "suspected",
         "not_observed",
         "inconclusive",
+        "not_applicable",
         "error"
       ],
       "title": "Verdict",
@@ -623,6 +717,7 @@
       "enum": [
         "candidate",
         "confirmed",
+        "suspected",
         "inconclusive"
       ],
       "title": "FindingStatus",

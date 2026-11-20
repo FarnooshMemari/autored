@@ -11,7 +11,7 @@ from conftest import SCOPE_FILE, target_from_scope
 
 def test_scope_file_loads():
     reg = ScopeRegistry.load(SCOPE_FILE)
-    assert [t.id for t in reg.list()] == ["acmehelp-local"]
+    assert [t.id for t in reg.list()] == ["acmehelp-local", "globex-local", "initech-local"]
 
 
 def test_unknown_target_rejected():

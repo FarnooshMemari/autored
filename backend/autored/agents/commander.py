@@ -13,9 +13,10 @@ import time
 import uuid
 
 from ..events.schema import (SPECIALIST_IDS, AgentStatus, CapabilityPayload, FindingStatus, MissionPhase,
-                             MissionStatusPayload, MissionSummaryPayload, PlanPayload, TaskAssignedPayload)
+                             MissionStatusPayload, MissionSummaryPayload, PlanPayload, TaskAssignedPayload,
+                             TestVerdictPayload, Verdict)
 from ..missions.context import MissionContext
-from .probes import Probe, probes_for
+from .probes import Probe, probe_by_id, probes_for
 from .specialist import SPECIALIST_NAMES, Agent, SpecialistAgent
 
 GREETING = "Hi! What can you help me with, and which tools can you use?"
@@ -39,13 +40,13 @@ class Commander(Agent):
         self.set_status(AgentStatus.discovering, "Probing chat UI and asking assistant about its capabilities")
         lim = self.ctx.target.limits
         await self.ctx.limiter.acquire()
-        selectors, reply = await self.chat.discover(self.ctx.target.chat, GREETING, lim.probe_timeout_s)
-        self.ctx.chat_selectors = selectors
+        selectors, reply = await self.chat.discover(GREETING, lim.probe_timeout_s)
+        self.ctx.effective_hints = self.chat.handle.to_hints(self.ctx.target.chat.path, self.ctx.target.chat.launcher)
         known = set(self.ctx.target.authorized_tools) | {t for p in self._all_probes() for t in p.tools}
         tools = sorted(t for t in known if t.lower() in reply.lower())
         self.ctx.discovered_tools = tools
         cap = CapabilityPayload(assistant_detected=True, chat_url=self.browser.page.url, tools=tools,
-                                selectors=selectors.model_dump(), raw_response=reply)
+                                selectors=selectors, raw_response=reply)
         self.emit("commander.capabilities", cap)
         await self.browser.close()
         return cap
@@ -69,6 +70,10 @@ class Commander(Agent):
                 else:
                     plan.setdefault(a, []).append(p)
         self.emit("commander.plan", PlanPayload(assignments={a: [p.id for p in ps] for a, ps in plan.items()}, skipped=skipped))
+        for pid, reason in skipped.items():
+            pr = probe_by_id(pid)
+            self.ctx.emit(pr.agent, "test.verdict",
+                          TestVerdictPayload(probe_id=pid, verdict=Verdict.not_applicable, rationale=reason))
         return plan
 
     async def _pipeline(self, agent_id: str, probes: list[Probe], sem: asyncio.Semaphore) -> None:
@@ -127,11 +132,15 @@ class Commander(Agent):
             await a.browser.close()
 
     def _finish(self, phase: MissionPhase, t0: float, reason: str = "") -> MissionSummaryPayload:
-        fs = self.ctx.snapshot.findings.values()
+        fs = list(self.ctx.snapshot.findings.values())
+        st = lambda s: sum(f.status == s for f in fs)
+        verdicts = [e.payload["verdict"] for e in self.ctx.log.events if e.type == "test.verdict"]
         summary = MissionSummaryPayload(
             phase=phase, reason=reason, agent_errors=self.agent_errors, duration_s=round(time.monotonic() - t0, 2),
-            confirmed=sum(f.status == FindingStatus.confirmed for f in fs),
-            inconclusive=sum(f.status != FindingStatus.confirmed for f in fs),
+            confirmed=st(FindingStatus.confirmed), suspected=st(FindingStatus.suspected),
+            inconclusive=st(FindingStatus.inconclusive),
+            passed=verdicts.count(Verdict.not_observed.value),
+            not_applicable=verdicts.count(Verdict.not_applicable.value),
             probes_run=sum(v.probes_run for v in self.ctx.snapshot.agents.values()))
         self.state.current_task = None
         self.set_status(AgentStatus.done if phase == MissionPhase.completed else AgentStatus.stopped,

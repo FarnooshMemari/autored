@@ -153,7 +153,10 @@ class AgentBrowser:
 
     def _on_nav(self, frame) -> None:
         if self.page is not None and frame == self.page.main_frame:
-            self.emit("browser.navigated", BrowserNavigatedPayload(url=frame.url, context_id=self.context_id))
+            vp = self.page.viewport_size
+            self.emit("browser.navigated", BrowserNavigatedPayload(
+                url=frame.url, context_id=self.context_id,
+                viewport={"width": vp["width"], "height": vp["height"]} if vp else None))
 
     # -- instrumented actions --------------------------------------------
     async def goto(self, url: str) -> None:

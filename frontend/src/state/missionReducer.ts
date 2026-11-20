@@ -113,8 +113,9 @@ export function reduce(s: MissionState, e: AutoRedEvent): MissionState {
       a.lastResponse = e.payload.response;
       break;
     case "test.verdict":
-      a.probes_run += 1;
-      a.cue = e.payload.verdict === "vulnerable" ? "alarmed" : a.cue;
+      if (e.payload.verdict !== "not_applicable") a.probes_run += 1; // not executed
+      if (e.payload.verdict === "vulnerable") a.cue = "alarmed";
+      else if (e.payload.verdict === "suspected") a.cue = "thinking";
       break;
     case "finding.candidate":
     case "finding.updated":

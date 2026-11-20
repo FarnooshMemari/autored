@@ -40,17 +40,25 @@ class Account(BaseModel):
 
 
 class LoginConfig(BaseModel):
+    mode: str = "form"            # "form" = AutoRed fills synthetic creds; "assisted" = operator logs in
     path: str
-    username_selector: str
-    password_selector: str
-    submit_selector: str
+    username_selector: str = ""
+    password_selector: str = ""
+    submit_selector: str = ""
+    success_selector: str = ""    # assisted mode: wait for this to confirm login completed
+    wait_timeout_s: float = 180   # assisted mode: how long to wait for the operator
 
 
 class ChatHints(BaseModel):
+    """All optional except `path`: whatever is omitted, AutoRed discovers.
+    Pin fields here as a manual fallback when auto-discovery fails."""
     path: str
     input: str | None = None
     send: str | None = None
+    send_mode: str | None = None          # "click" | "enter"
     assistant_message: str | None = None
+    frame: str | None = None              # iframe CSS selector, if the chat lives in one
+    launcher: str | None = None           # button to click to open the widget
 
 
 class Canary(BaseModel):

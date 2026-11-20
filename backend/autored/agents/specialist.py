@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 from ..browser.chat import ChatSession
 from ..browser.runtime import AgentBrowser
-from ..events.schema import (AgentStatus, AgentStatusPayload, Evidence, FindingPayload, FindingStatus,
+from ..events.schema import (AgentStatus, AgentStatusPayload, Box, Evidence, FindingPayload, FindingStatus,
                              LogPayload, TaskCompletedPayload, TestResponsePayload, TestStartedPayload,
                              TestVerdictPayload, Verdict)
 from ..missions.context import MissionContext
@@ -70,8 +70,8 @@ class Agent:
         await self.chat.login(self.account, self.ctx.target.login)
         self.set_status(AgentStatus.navigating, "Opening assistant chat")
         await self.chat.open()
-        if self.ctx.chat_selectors is not None:   # discovered once by the Commander
-            self.chat.selectors = self.ctx.chat_selectors
+        if self.ctx.effective_hints is not None:   # reuse the Commander's discovery in this context
+            await self.chat.attach(self.ctx.effective_hints, self.ctx.target.limits.probe_timeout_s)
 
     async def shutdown(self, status: AgentStatus = AgentStatus.done, activity: str = "Finished") -> None:
         # Report first: if cleanup is interrupted (e.g. a second cancel), the UI
@@ -114,8 +114,9 @@ class SpecialistAgent(Agent):
             self.set_status(AgentStatus.validating if attempt > 1 else AgentStatus.testing, f"{probe.id}: {probe.name}")
             self.emit("test.started", TestStartedPayload(probe_id=probe.id, probe_name=probe.name,
                                                          category=probe.agent, prompt=prompt, attempt=attempt))
-            reply, ms = await asyncio.wait_for(self.chat.send(prompt, lim.probe_timeout_s), lim.probe_timeout_s + 5)
-            self.emit("test.response", TestResponsePayload(probe_id=probe.id, response=reply, latency_ms=ms, attempt=attempt))
+            reply, ms, box = await asyncio.wait_for(self.chat.send(prompt, lim.probe_timeout_s), lim.probe_timeout_s + 5)
+            self.emit("test.response", TestResponsePayload(probe_id=probe.id, response=reply, latency_ms=ms,
+                                                           attempt=attempt, box=Box(**box) if box else None))
             new_records = None
             if probe.oracle:
                 after = await self._oracle()
@@ -136,16 +137,19 @@ class SpecialistAgent(Agent):
                 except asyncio.TimeoutError:
                     self.emit("test.verdict", TestVerdictPayload(probe_id=probe.id, verdict=Verdict.error, rationale="timed out"))
                     continue
-                if ev.verdict in (Verdict.vulnerable, Verdict.inconclusive):
+                if ev.verdict in (Verdict.vulnerable, Verdict.suspected, Verdict.inconclusive):
                     fid = f"F-{uuid.uuid4().hex[:8]}"
                     shot = await self.browser.screenshot(self.ctx.artifacts_dir / f"{fid}.png")
+                    # inconclusive = could not be evaluated -> no reproduction attempt possible
+                    status = FindingStatus.inconclusive if ev.verdict == Verdict.inconclusive else FindingStatus.candidate
                     f = FindingPayload(
                         finding_id=fid, probe_id=probe.id, category=probe.agent, title=probe.title,
-                        severity=probe.severity, status=FindingStatus.candidate, prompt=prompt,
+                        severity=probe.severity, status=status, prompt=prompt,
                         evidence=[*ev.evidence, Evidence(kind="screenshot", detail="Browser at time of response", artifact=shot.name)],
                         attempts=1, reproductions=1 if ev.verdict == Verdict.vulnerable else 0)
                     self.emit("finding.candidate", f)
-                    candidates.append((probe, f))
+                    if status == FindingStatus.candidate:
+                        candidates.append((probe, f))
             self._end(rec, "completed", f"{len(probes)} probes, {len(candidates)} candidate(s)")
             return candidates
         except asyncio.CancelledError:
@@ -172,10 +176,13 @@ class SpecialistAgent(Agent):
                 if ev.verdict == Verdict.vulnerable:
                     successes += 1
                     evidence += [e for e in ev.evidence if e.kind in ("canary", "oracle")][:1]
-            status = FindingStatus.confirmed if successes >= lim.validation_required else FindingStatus.inconclusive
+            strong = finding.reproductions + successes
+            # Confirmed only on repeated STRONG evidence; otherwise a real-but-flaky
+            # signal is "suspected", never silently dropped or over-claimed.
+            status = FindingStatus.confirmed if strong >= lim.validation_required else FindingStatus.suspected
             updated = finding.model_copy(update={
                 "status": status, "attempts": finding.attempts + attempts,
-                "reproductions": finding.reproductions + successes, "evidence": evidence})
+                "reproductions": strong, "evidence": evidence})
             self.emit("finding.updated", updated)
             self._end(rec, "completed", f"{status.value}: reproduced {successes}/{attempts}")
             return updated

@@ -71,6 +71,7 @@ class MissionSnapshot(BaseModel):
             case "browser.navigated":
                 a.url, a.context_id = p["url"], p["context_id"]
             case "test.verdict":
-                a.probes_run += 1
+                if p["verdict"] not in ("not_applicable",):  # not executed
+                    a.probes_run += 1
             case "finding.candidate" | "finding.updated":
                 self.findings[p["finding_id"]] = FindingPayload.model_validate(p)

@@ -4,7 +4,7 @@
  * Keep in sync; the parity test in state/missionReducer.test.ts replays a
  * real backend event log through this contract.
  */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export type AgentId = "commander" | "injection" | "leakage" | "hierarchy" | "tools";
 export const SPECIALIST_IDS = ["injection", "leakage", "hierarchy", "tools"] as const;
@@ -18,9 +18,11 @@ export type MissionPhase =
   | "created" | "discovery" | "planning" | "execution" | "consolidation"
   | "completed" | "aborted" | "failed";
 
-export type Verdict = "vulnerable" | "not_observed" | "inconclusive" | "error";
-export type FindingStatus = "candidate" | "confirmed" | "inconclusive";
+export type Verdict = "vulnerable" | "suspected" | "not_observed" | "inconclusive" | "not_applicable" | "error";
+export type FindingStatus = "candidate" | "confirmed" | "suspected" | "inconclusive";
 export type Severity = "low" | "medium" | "high" | "critical";
+
+export interface Box { x: number; y: number; width: number; height: number }
 
 export interface Evidence {
   kind: "response_excerpt" | "canary" | "oracle" | "screenshot";
@@ -57,7 +59,10 @@ export interface PlanPayload {
 export interface MissionSummaryPayload {
   phase: MissionPhase;
   confirmed: number;
+  suspected: number;
   inconclusive: number;
+  passed: number;
+  not_applicable: number;
   probes_run: number;
   agent_errors: number;
   duration_s: number;
@@ -72,11 +77,11 @@ export interface PayloadByType {
   "task.completed": { task_id: string; kind: "assess" | "validate"; outcome: "completed" | "failed" | "cancelled" | "skipped"; detail: string };
   "commander.capabilities": CapabilityPayload;
   "commander.plan": PlanPayload;
-  "browser.navigated": { url: string; title: string; context_id: string };
-  "browser.action": { action: "click" | "fill" | "press" | "wait" | "read"; selector: string; value_preview: string };
+  "browser.navigated": { url: string; title: string; context_id: string; viewport: { width: number; height: number } | null };
+  "browser.action": { action: "click" | "fill" | "press" | "wait" | "read"; selector: string; value_preview: string; frame: string | null; box: Box | null };
   "browser.blocked": { url: string; reason: string };
   "test.started": { probe_id: string; probe_name: string; category: string; prompt: string; attempt: number };
-  "test.response": { probe_id: string; response: string; latency_ms: number; attempt: number };
+  "test.response": { probe_id: string; response: string; latency_ms: number; attempt: number; box: Box | null };
   "test.verdict": { probe_id: string; verdict: Verdict; rationale: string; attempt: number };
   "finding.candidate": FindingPayload;
   "finding.updated": FindingPayload;
