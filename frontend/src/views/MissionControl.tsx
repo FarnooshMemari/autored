@@ -3,6 +3,15 @@ import type { AutoRedClient } from "../api/client";
 import type { AgentInfo, TargetInfo } from "../contracts/events";
 import { SPECIALIST_IDS } from "../contracts/events";
 import { AgentCharacter } from "../components/AgentCharacter";
+import type { AgentId } from "../contracts/events";
+
+const ABOUT: Record<string, string> = {
+  commander: "Plans the assessment, delegates to specialists, interprets evidence, and decides when enough testing has been done.",
+  injection: "Probes direct, indirect and multi-turn prompt injection — making the assistant ignore its instructions.",
+  leakage: "Hunts unauthorized disclosure: cross-account access, privacy boundaries and synthetic canary leakage.",
+  hierarchy: "Tests system / developer / user instruction boundaries and privilege-by-conversation.",
+  tools: "Checks tool authorization, privilege escalation through conversation, and actual tool side effects.",
+};
 import { Empty, Pill, Section } from "../components/common";
 
 const MODES = [
@@ -95,13 +104,20 @@ export function MissionControl({ client, targets, agents, onOpen }:
           </div>
 
           <div className="card pad">
-            <div className="sub" style={{ marginBottom: 10 }}>Agent roster</div>
+            <div className="row between" style={{ marginBottom: 12 }}>
+              <div className="sub">Agent roster</div><span className="faint" style={{ fontSize: 11 }}>5 specialized agents</span>
+            </div>
             <div className="grid" style={{ gap: 10 }}>
               {agents.map((a) => (
-                <div key={a.id} className="row" style={{ gap: 12 }}>
-                  <AgentCharacter color={a.color} cue="idle" size={46} name={a.name} />
-                  <div><div style={{ fontWeight: 700 }}>{a.name} <span className="faint" style={{ fontWeight: 400 }}>/ {a.id}</span></div>
-                    <div className="sub">{a.role}</div></div>
+                <div key={a.id} className="roster-card" style={{ ["--ac" as any]: a.color }}>
+                  <AgentCharacter color={a.color} cue="idle" size={56} name={a.name} agentId={a.id as AgentId} />
+                  <div style={{ minWidth: 0 }}>
+                    <div className="row" style={{ gap: 8, alignItems: "baseline" }}>
+                      <span style={{ fontWeight: 800, fontSize: 15 }}>{a.name}</span>
+                      <span className="pill" style={{ color: a.color, fontSize: 10, padding: "1px 8px" }}>{a.role}</span>
+                    </div>
+                    <div className="sub" style={{ fontSize: 12, marginTop: 3 }}>{ABOUT[a.id]}</div>
+                  </div>
                 </div>
               ))}
             </div>

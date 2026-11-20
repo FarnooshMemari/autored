@@ -102,6 +102,9 @@ tr:hover td { background: rgba(255,255,255,.015); }
 .char-confirmed .char-aura { animation: burst 1.2s ease-out infinite; }
 @keyframes burst { 0% { transform: scale(.9); opacity: 1; } 100% { transform: scale(1.3); opacity: .2; } }
 .char-blocked svg, .char-error svg, .char-stopped svg { opacity: .55; filter: grayscale(.4); }
+.char-shadow { position: absolute; bottom: 2%; left: 22%; width: 56%; height: 10%; background: #000;
+  border-radius: 50%; filter: blur(5px); opacity: .45; z-index: 0; }
+.char svg { filter: drop-shadow(0 6px 10px rgba(0,0,0,.35)); }
 
 /* --- responsive grids + mobile nav --- */
 .agent-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
@@ -119,3 +122,8 @@ tr:hover td { background: rgba(255,255,255,.015); }
 .rec-badge { position: absolute; top: 8px; right: 10px; z-index: 2; font-size: 10px; font-weight: 700;
   letter-spacing: .05em; color: #fca5a5; background: rgba(15,18,26,.85); border: 1px solid rgba(248,113,113,.4);
   padding: 2px 8px; border-radius: 999px; }
+
+.roster-card { display: flex; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--ac) 10%, transparent), var(--surface-2) 60%);
+  border: 1px solid var(--border); border-left: 3px solid var(--ac); transition: transform .15s, border-color .15s; }
+.roster-card:hover { transform: translateX(3px); border-color: color-mix(in srgb, var(--ac) 50%, var(--border)); }

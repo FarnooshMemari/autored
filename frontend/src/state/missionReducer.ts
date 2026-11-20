@@ -82,7 +82,7 @@ export function reduce(s: MissionState, e: AutoRedEvent): MissionState {
       next = { ...next, phase: e.payload.phase, message: e.payload.message };
       break;
     case "mission.completed":
-      next = { ...next, summary: e.payload, phase: e.payload.phase };
+      next = { ...next, summary: e.payload, phase: e.payload.phase, live: false };   // finished -> recorded
       break;
     case "agent.status":
       Object.assign(a, { status: e.payload.status, activity: e.payload.activity, task_id: e.payload.task_id, cue: cueFor(e.payload.status) });

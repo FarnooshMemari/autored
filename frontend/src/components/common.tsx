@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import React, { type ReactNode } from "react";
 
 export const Pill = ({ children, color, className = "" }: { children: ReactNode; color?: string; className?: string }) => (
   <span className={`pill ${className}`} style={color ? { color } : undefined}><span className="d" />{children}</span>
@@ -26,25 +26,42 @@ export const Empty = ({ children }: { children: ReactNode }) => <div className="
 export const sevClass = (s: string) => `sev-${s}`;
 export const stClass = (s: string) => `st-${s}`;
 
-/** Lightweight grouped bar chart (inline SVG, no deps). */
-export function BarChart({ series, groups, colors, height = 150, fmt = (n: number) => String(n) }:
-  { series: { label: string; values: number[] }[]; groups: string[]; colors: string[]; height?: number; fmt?: (n: number) => string }) {
+/** Labeled grouped bar chart (HTML/CSS, crisp labels, no deps). */
+export function BarChart({ series, groups, colors, height = 180, unit = "", yLabel }:
+  { series: { label: string; values: number[] }[]; groups: string[]; colors: string[]; height?: number; unit?: string; yLabel?: string }) {
   const max = Math.max(1, ...series.flatMap((s) => s.values));
-  const gw = 100 / groups.length;
-  const bw = (gw * 0.62) / series.length;
   return (
-    <svg viewBox={`0 0 100 ${100}`} preserveAspectRatio="none" style={{ width: "100%", height }}>
-      {[0.25, 0.5, 0.75, 1].map((f) => (
-        <line key={f} x1="0" x2="100" y1={100 - f * 92} y2={100 - f * 92} stroke="rgba(255,255,255,.06)" strokeWidth="0.3" />
-      ))}
-      {groups.map((_, gi) => series.map((s, si) => {
-        const h = (s.values[gi] / max) * 92;
-        const x = gi * gw + gw * 0.19 + si * bw;
-        return <rect key={`${gi}-${si}`} x={x} y={100 - h} width={bw * 0.84} height={h} rx="0.6"
-          fill={colors[si]} opacity="0.92"><title>{`${s.label} / ${groups[gi]}: ${fmt(s.values[gi])}`}</title></rect>;
-      }))}
-    </svg>
+    <div style={{ display: "flex", gap: 10 }}>
+      {yLabel && <div style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", fontSize: 10.5, color: "var(--faint)", textTransform: "uppercase", letterSpacing: ".08em", alignSelf: "center" }}>{yLabel}</div>}
+      <div style={{ flex: 1 }}>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 14, height, borderBottom: "1px solid var(--border)", padding: "0 6px" }}>
+          {groups.map((g, gi) => (
+            <div key={g} style={{ flex: 1, display: "flex", gap: 6, alignItems: "flex-end", justifyContent: "center", height: "100%" }}>
+              {series.map((s, si) => (
+                <div key={si} title={`${s.label} / ${g}: ${s.values[gi]}${unit}`}
+                     style={{ width: 26, height: `${Math.max(2, (s.values[gi] / max) * 100)}%`, background: `linear-gradient(180deg, ${colors[si]}, ${colors[si]}99)`,
+                       borderRadius: "4px 4px 0 0", position: "relative", transition: "height .5s" }}>
+                  <span style={{ position: "absolute", top: -17, left: "50%", transform: "translateX(-50%)", fontSize: 11, fontWeight: 700, color: "var(--text)" }}>{s.values[gi]}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 14, padding: "6px 6px 0" }}>
+          {groups.map((g) => <div key={g} style={{ flex: 1, textAlign: "center", fontSize: 11.5, color: "var(--muted)", fontWeight: 600 }}>{g}</div>)}
+        </div>
+      </div>
+    </div>
   );
+}
+
+export function KpiRow({ items }: { items: { label: string; value: React.ReactNode; color?: string }[] }) {
+  return <div style={{ display: "grid", gridTemplateColumns: `repeat(${items.length}, 1fr)`, gap: 10 }}>
+    {items.map((i) => <div key={i.label} className="card pad" style={{ padding: "12px 14px" }}>
+      <div className="kpi small" style={i.color ? { color: i.color } : undefined}>{i.value}</div>
+      <div className="sub" style={{ fontSize: 11.5, marginTop: 1 }}>{i.label}</div>
+    </div>)}
+  </div>;
 }
 
 export function Legend({ items }: { items: { label: string; color: string }[] }) {

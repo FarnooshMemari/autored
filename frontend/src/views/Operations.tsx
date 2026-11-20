@@ -5,7 +5,7 @@ import { SPECIALIST_IDS } from "../contracts/events";
 import type { AgentView, MissionState } from "../state/missionReducer";
 import { useAgentFrame } from "../state/useMission";
 import { AgentCharacter } from "../components/AgentCharacter";
-import { Pill, Section } from "../components/common";
+import { KpiRow, Pill, Section } from "../components/common";
 
 function LiveBrowser({ client, missionId, agent, info, live, recordedShot, expanded, onToggle }:
   { client: AutoRedClient; missionId: string; agent: AgentView; info?: AgentInfo; live: boolean; recordedShot?: string; expanded: boolean; onToggle: () => void }) {
@@ -86,7 +86,7 @@ export function Operations({ client, state, agents, onStop }:
               const a = state.agents[id as AgentId]; const i = info[id];
               return (
                 <div key={id} className="row" style={{ gap: 10, alignItems: "flex-start" }}>
-                  <AgentCharacter color={i?.color ?? "#888"} cue={a.cue} size={58} name={i?.name} />
+                  <AgentCharacter color={i?.color ?? "#888"} cue={a.cue} size={64} name={i?.name} agentId={id as AgentId} />
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontWeight: 700 }}>{i?.name ?? id}</div>
                     <div className="sub" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.status}</div>
@@ -99,6 +99,19 @@ export function Operations({ client, state, agents, onStop }:
         </div>
       </Section>
 
+      {(() => {
+        const fs = Object.values(state.findings);
+        const n = (st: string) => fs.filter((f) => f.status === st).length;
+        const probes = Object.values(state.agents).reduce((a, x) => a + x.probes_run, 0);
+        return <div style={{ marginBottom: 14 }}><KpiRow items={[
+          { label: "Confirmed", value: n("confirmed"), color: "var(--ok)" },
+          { label: "Suspected", value: n("suspected"), color: "var(--warn)" },
+          { label: "Inconclusive", value: n("inconclusive"), color: "var(--muted)" },
+          { label: "Probes run", value: probes },
+          { label: state.summary ? "Duration" : "Phase", value: state.summary ? `${state.summary.duration_s}s` : state.phase },
+          { label: "LLM calls", value: state.summary?.llm_calls ?? 0 },
+        ]} /></div>;
+      })()}
       <div className={`browser-grid ${expanded ? "one" : ""}`}>
         {shownBrowsers.map((id) => {
           const shot = Object.values(state.findings).find((f) => f.category === id && f.evidence.some((e) => e.kind === "screenshot" && e.artifact))?.evidence.find((e) => e.kind === "screenshot")?.artifact;

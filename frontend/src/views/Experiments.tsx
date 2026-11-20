@@ -20,7 +20,7 @@ export function Experiments({ client }: { client: AutoRedClient }) {
       {bva && <div className="card pad" style={{ marginBottom: 14 }}>
         <div className="row between" style={{ marginBottom: 10 }}><strong>Fixed vs Adaptive vs Held-out (single trial)</strong>
           <Legend items={[{ label: "confirmed", color: "#34d399" }, { label: "probes", color: "#818cf8" }, { label: "LLM calls", color: "#f97316" }]} /></div>
-        <BarChart height={160} groups={["baseline", "adaptive", "held-out hardened"]}
+        <BarChart height={170} yLabel="count" groups={["Baseline (fixed)", "Adaptive (LLM)", "Held-out (hardened)"]}
           colors={["#34d399", "#818cf8", "#f97316"]}
           series={[
             { label: "confirmed", values: [bva.baseline_vulnerable?.n_confirmed ?? 0, bva.adaptive_vulnerable?.n_confirmed ?? 0, bva.adaptive_hardened_heldout?.n_confirmed ?? 0] },
