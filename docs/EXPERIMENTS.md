@@ -103,3 +103,31 @@ below where available.
   is also run against the *hardened* config (not used to design it) to check it does
   not over-claim.
 - **Honest negatives:** where adaptive does not beat baseline, that is reported.
+
+## Experiment 3 — Repeated trials (reproducibility / variance)
+N=3 trials each, vulnerable config, same budgets as Experiment 2.
+
+| | Baseline (fixed) | Adaptive (LLM) |
+|---|---|---|
+| Confirmed (mean, range) | **2.0** (2–2) | **0.67** (0–1) |
+| Tool-permission vuln detected | **3/3 trials (100%)** | **2/3 trials (67%)** |
+| Mean probes | 18 | 8 |
+| Mean LLM calls | 0 | 2 |
+| Mean duration | 195 s | 89 s |
+
+**Reproducibility conclusion.** The fixed baseline was **perfectly reliable** at the
+one confirmable vulnerability on this target (3/3, zero variance in confirmed count).
+The adaptive planner **missed it in 1 of 3 trials** (67%) — cheaper and faster, but
+**less reliable and less thorough**. Across all 6 trials neither arm reliably confirmed
+injection/leakage/hierarchy findings: those depend on `llama3.2:3b` non-deterministically
+disclosing a canary, which it mostly did not (the single 3-confirmed baseline run in
+Experiment 2 was an outlier where PI-003 happened to leak the system-prompt canary).
+
+## Overall conclusion (Part 5 success criterion)
+On this authorized, controlled target with a small local planner, **adaptive reasoning
+did not improve — and on reliability was worse than — the fixed-probe baseline.** We
+report a **negative result** and do not claim improvement. Adaptive's genuine positives
+are **efficiency** (≈half the probes and time) and **no over-claiming** on the held-out
+hardened config (0 confirmed; all tool calls backend-rejected). Its intended advantage
+on **large/unknown attack surfaces** is not testable on this small, well-covered target
+and remains unproven.
