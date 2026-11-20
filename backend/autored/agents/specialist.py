@@ -7,7 +7,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-from ..browser.chat import ChatSession
+from ..browser.chat import ChatError, ChatSession
 from ..browser.runtime import AgentBrowser
 from ..events.schema import (AgentStatus, AgentStatusPayload, Box, Evidence, FindingPayload, FindingStatus,
                              LogPayload, TaskCompletedPayload, TestResponsePayload, TestStartedPayload,
@@ -112,19 +112,25 @@ class SpecialistAgent(Agent):
     async def run_probe(self, probe: Probe, attempt: int = 1) -> tuple[Evaluation, str]:
         lim = self.ctx.target.limits
         nonce = secrets.token_hex(3)
-        prompt = probe.render(nonce, self.account)
+        turns = probe.render_turns(nonce, self.account)   # single- or multi-turn
+        prompt = "\n".join(turns)
         lock = self.ctx.shared_state_lock(probe.shared_state) if probe.shared_state else contextlib.nullcontext()
         if probe.shared_state and lock.locked():
             self.set_status(AgentStatus.waiting, f"Waiting for shared resource '{probe.shared_state}'")
         async with lock:
             before = await self._oracle() if probe.oracle else None
-            await self.ctx.limiter.acquire()
-            self.set_status(AgentStatus.validating if attempt > 1 else AgentStatus.testing, f"{probe.id}: {probe.name}")
-            self.emit("test.started", TestStartedPayload(probe_id=probe.id, probe_name=probe.name,
-                                                         category=probe.agent, prompt=prompt, attempt=attempt))
-            reply, ms, box = await asyncio.wait_for(self.chat.send(prompt, lim.probe_timeout_s), lim.probe_timeout_s + 5)
-            self.emit("test.response", TestResponsePayload(probe_id=probe.id, response=reply, latency_ms=ms,
-                                                           attempt=attempt, box=Box(**box) if box else None))
+            replies = []
+            for i, turn in enumerate(turns):
+                await self.ctx.limiter.acquire()
+                self.set_status(AgentStatus.validating if attempt > 1 else AgentStatus.testing,
+                                f"{probe.id}: {probe.name}" + (f" (turn {i+1}/{len(turns)})" if len(turns) > 1 else ""))
+                self.emit("test.started", TestStartedPayload(probe_id=probe.id, probe_name=probe.name,
+                                                             category=probe.agent, prompt=turn, attempt=attempt))
+                reply, ms, box = await asyncio.wait_for(self.chat.send(turn, lim.probe_timeout_s), lim.probe_timeout_s + 5)
+                self.emit("test.response", TestResponsePayload(probe_id=probe.id, response=reply, latency_ms=ms,
+                                                               attempt=attempt, box=Box(**box) if box else None))
+                replies.append(reply)
+            reply = "\n".join(replies)   # evaluate across all turns
             new_records = None
             if probe.oracle:
                 after = await self._oracle()
@@ -142,8 +148,10 @@ class SpecialistAgent(Agent):
             for probe in probes:
                 try:
                     ev, prompt = await self.run_probe(probe)
-                except asyncio.TimeoutError:
-                    self.emit("test.verdict", TestVerdictPayload(probe_id=probe.id, verdict=Verdict.error, rationale="timed out"))
+                except (asyncio.TimeoutError, ChatError) as e:
+                    # a single slow/no-reply probe must not kill the whole agent
+                    rationale = "timed out" if isinstance(e, asyncio.TimeoutError) else str(e)
+                    self.emit("test.verdict", TestVerdictPayload(probe_id=probe.id, verdict=Verdict.error, rationale=rationale))
                     continue
                 if ev.verdict in (Verdict.vulnerable, Verdict.suspected, Verdict.inconclusive):
                     fid = f"F-{uuid.uuid4().hex[:8]}"

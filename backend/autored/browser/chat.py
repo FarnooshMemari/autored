@@ -36,9 +36,14 @@ class ChatSession:
         await self.b.fill(cfg.username_selector, account.username)
         await self.b.fill(cfg.password_selector, account.password, secret=True)
         await self.b.click(cfg.submit_selector)
-        await self.b.page.wait_for_load_state("domcontentloaded")
-        if self.b.page.url.rstrip("/").endswith(cfg.path.rstrip("/")):
-            raise ChatError(f"login failed for test account {account.username}")
+        # SPA logins redirect client-side; wait for the login path to go away.
+        login_path = cfg.path.rstrip("/")
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline:
+            await self.b.page.wait_for_timeout(300)
+            if login_path not in self.b.page.url.rstrip("/"):
+                return
+        raise ChatError(f"login failed for test account {account.username}")
 
     async def _assisted_login(self, cfg: LoginConfig) -> None:
         """Operator completes login (SSO/MFA) in the browser; we only wait and

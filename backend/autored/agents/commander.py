@@ -51,7 +51,8 @@ class Commander(Agent):
         return cap
 
     def _all_probes(self) -> list[Probe]:
-        return [p for a in self.agent_ids for p in probes_for(a)]
+        opt = self.ctx.target.include_optional_probes
+        return [p for a in self.agent_ids for p in probes_for(a, include_optional=opt)]
 
     def plan(self) -> dict[str, list[Probe]]:
         self.phase(MissionPhase.planning, "Selecting probes within scope")
@@ -59,14 +60,16 @@ class Commander(Agent):
         authorized = set(self.ctx.target.authorized_tools)
         plan: dict[str, list[Probe]] = {}
         skipped: dict[str, str] = {}
+        opt = self.ctx.target.include_optional_probes
         for a in self.agent_ids:
-            for p in probes_for(a):
+            for p in probes_for(a, include_optional=opt):
                 unauth = [t for t in p.tools if t not in authorized]
                 if unauth:
+                    # not authorized in scope => not runnable here
                     skipped[p.id] = f"tool(s) {unauth} not authorized in scope"
-                elif p.tools and not set(p.tools) <= set(self.ctx.discovered_tools):
-                    skipped[p.id] = f"assistant did not advertise {list(p.tools)}"
                 else:
+                    # authorized_tools is the operator's assertion that the tool exists;
+                    # we do not require the assistant to "advertise" it (real apps don't).
                     plan.setdefault(a, []).append(p)
         self.emit("commander.plan", PlanPayload(assignments={a: [p.id for p in ps] for a, ps in plan.items()}, skipped=skipped))
         for pid, reason in skipped.items():

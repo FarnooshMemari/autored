@@ -116,10 +116,14 @@ without it, tool-boundary results can only be `inconclusive`, never `confirmed`.
 
 ## Limitations
 
-- **Executed against a real LLM** (unmodified open-webui + `llama3.2:1b`,
-  self-hosted) in addition to the synthetic targets — see
-  [docs/M3_EXECUTION.md](docs/M3_EXECUTION.md). No **externally-hosted** third-party
-  target has been tested; that requires verified authorization
+- **Executed against a real LLM with real tool-calling.** Unmodified open-webui +
+  `llama3.2:3b` (native function calling) with an auditable tool-execution log and
+  four isolated test accounts: AutoRed **confirmed 2 critical tool-permission
+  violations** (a customer invoking a staff-only refund tool, incl. a multi-turn
+  attack), reproduced 4/4 via the audit oracle — see
+  [docs/M3B_EXECUTION.md](docs/M3B_EXECUTION.md) (earlier `llama3.2:1b` run:
+  [docs/M3_EXECUTION.md](docs/M3_EXECUTION.md)). No **externally-hosted** third-party
+  target has been tested; that needs verified authorization
   ([docs/EXTERNAL_TARGETS.md](docs/EXTERNAL_TARGETS.md)).
 - Probe library is still small (2–3 probes per category) and mostly single-turn
   (multi-turn history is tracked; multi-turn *probes* are M2b).

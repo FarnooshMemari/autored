@@ -95,6 +95,7 @@ class Target(BaseModel):
     # External targets typically start as ["connectivity"] until methods are signed off.
     authorized_methods: list[str] = ["connectivity", "security_probes"]
     identify_as: str | None = None          # User-Agent / X-Bug-Bounty value for RoE-compliant traffic
+    include_optional_probes: bool = False   # run multi-turn / advanced probes too
     connectivity_message: str = "What can you help me with today?"
     limits: Limits = Limits()
 
