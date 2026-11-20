@@ -18,11 +18,12 @@ export function History({ client, onOpen }: { client: AutoRedClient; onOpen: (id
       <div className="grid" style={{ gridTemplateColumns: "1fr 1.1fr", gap: 14 }}>
         <div className="card">
           {missions.length === 0 ? <Empty>No missions.</Empty> :
-            <table><thead><tr><th>Mission</th><th>Phase</th><th></th></tr></thead>
+            <table><thead><tr><th>Mission</th><th>Phase</th><th>Confirmed</th><th></th></tr></thead>
               <tbody>{missions.map((m) => (
                 <tr key={m.mission_id}>
-                  <td><code>{m.mission_id}</code><div className="faint" style={{ fontSize: 11 }}>{m.target_id}</div></td>
-                  <td><span className={m.phase === "completed" ? "st-confirmed" : "muted"}>{m.phase}</span></td>
+                  <td><code>{m.mission_id}</code><div className="faint" style={{ fontSize: 11 }}>{m.target_id} · {m.mode ?? "—"}{m.source === "stored" ? " · 💾" : ""}</div></td>
+                  <td><span className={m.phase === "completed" ? "st-confirmed" : m.phase === "interrupted" ? "sev-medium" : "muted"}>{m.phase}</span></td>
+                  <td>{m.confirmed ?? "—"}</td>
                   <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                     <button className="btn sm ghost" onClick={() => onOpen(m.mission_id)}>Open</button>{" "}
                     <button className="btn sm" onClick={() => openReport(m.mission_id)}>Report</button>

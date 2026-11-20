@@ -78,7 +78,7 @@ export function Operations({ client, state, agents, onStop }:
         </div>}>
         {/* agent strip */}
         <div className="card pad" style={{ marginBottom: 14 }}>
-          <div className="grid" style={{ gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
+          <div className="agent-strip">
             {["commander", ...SPECIALIST_IDS].map((id) => {
               const a = state.agents[id as AgentId]; const i = info[id];
               return (
@@ -96,7 +96,7 @@ export function Operations({ client, state, agents, onStop }:
         </div>
       </Section>
 
-      <div className="grid" style={{ gridTemplateColumns: expanded ? "1fr" : "1fr 1fr", gap: 14 }}>
+      <div className={`browser-grid ${expanded ? "one" : ""}`}>
         {shownBrowsers.map((id) => (
           <LiveBrowser key={id} client={client} missionId={state.mission_id} agent={state.agents[id]} info={info[id]}
             expanded={expanded === id} onToggle={() => setExpanded((x) => (x === id ? null : id))} />

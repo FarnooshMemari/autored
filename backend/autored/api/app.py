@@ -110,8 +110,18 @@ def create_app(settings: Settings | None = None, scopes: ScopeRegistry | None = 
 
     @app.get("/api/missions", dependencies=[api])
     async def list_missions():
-        return [{"mission_id": m.id, "target_id": m.ctx.target.id, "phase": m.snapshot.phase,
-                 "created_at": m.created_at, "active": m.active} for m in manager.missions.values()]
+        live = [{"mission_id": m.id, "target_id": m.ctx.target.id, "phase": m.snapshot.phase.value,
+                 "created_at": m.created_at.isoformat(), "active": m.active, "source": "live"}
+                for m in manager.missions.values()]
+        live_ids = set(manager.missions)
+        stored = []
+        if manager.store is not None:
+            for row in manager.store.list_missions(limit=200):
+                if row["id"] not in live_ids:
+                    stored.append({"mission_id": row["id"], "target_id": row["target_id"], "phase": row["phase"],
+                                   "created_at": row["created_at"], "active": False, "mode": row["mode"],
+                                   "confirmed": row["confirmed"], "source": "stored"})
+        return sorted(live + stored, key=lambda m: m["created_at"], reverse=True)
 
     @app.get("/api/missions/{mid}", response_model=MissionSnapshot, dependencies=[api])
     async def get_mission(mid: str):
@@ -128,14 +138,15 @@ def create_app(settings: Settings | None = None, scopes: ScopeRegistry | None = 
     @app.get("/api/missions/{mid}/report", dependencies=[api])
     async def mission_report(mid: str):
         from ..reporting.report import replay, report_json
-        m = mission_or_404(mid)
-        ev_path = (settings.runs_dir / mid / "events.jsonl")
-        if not ev_path.is_file():
-            # fall back to the in-memory log for a still-running mission
+        if not re.fullmatch(r"M-[\w-]+", mid):
+            raise HTTPException(400, "bad mission id")
+        ev_path = settings.runs_dir / mid / "events.jsonl"
+        if not ev_path.is_file() and mid in manager.missions:   # still-running mission: snapshot the live log
             import tempfile
-            tmp = Path(tempfile.mkstemp(suffix=".jsonl")[1])
-            tmp.write_text("\n".join(e.model_dump_json() for e in m.ctx.log.events))
-            ev_path = tmp
+            ev_path = Path(tempfile.mkstemp(suffix=".jsonl")[1])
+            ev_path.write_text("\n".join(e.model_dump_json() for e in manager.missions[mid].ctx.log.events))
+        if not ev_path.is_file():
+            raise HTTPException(404, "no event log for this mission")
         snap, events = replay(ev_path)
         return report_json(snap, events)
 

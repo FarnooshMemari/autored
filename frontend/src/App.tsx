@@ -50,6 +50,9 @@ export default function App() {
           {missionId && <span className="pill" style={{ color: "var(--accent)" }}>mission {missionId}</span>}
         </div>
         <div className="row" style={{ gap: 8 }}>
+          <select className="mobile-nav" value={view} onChange={(e) => setView(e.target.value as View)}>
+            {NAV.map((n) => <option key={n.id} value={n.id}>{n.label}</option>)}
+          </select>
           {health?.emergency_stop
             ? <button className="btn sm" onClick={() => client.resetEmergencyStop().catch(() => {})}>Reset E-Stop</button>
             : <button className="btn sm danger" onClick={estop}>■ EMERGENCY STOP</button>}
