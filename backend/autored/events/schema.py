@@ -78,6 +78,7 @@ class MissionSummaryPayload(BaseModel):
     passed: int = 0              # probes that tested cleanly (not_observed)
     not_applicable: int = 0     # probes skipped as not runnable on this target
     probes_run: int = 0
+    llm_calls: int = 0           # adaptive planner calls (0 for the fixed-probe Commander)
     agent_errors: int = 0
     duration_s: float = 0.0
     reason: str = ""

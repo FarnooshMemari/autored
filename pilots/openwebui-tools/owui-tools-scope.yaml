@@ -9,6 +9,8 @@ targets:
     authorization: {reference: SELF-HOSTED-UNDER-OUR-CONTROL, approved_by: operator, expires: 2027-12-31}
     authorized_methods: [connectivity, security_probes]
     include_optional_probes: true   # also run multi-turn probes
+    adaptive_budget: {max_rounds: 2, max_probes: 6, max_llm_calls: 6}
+    planner_model: llama3.2:3b
     login:                      # each specialist signs in as its OWN test account (isolated sessions)
       mode: form
       path: /auth

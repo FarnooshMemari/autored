@@ -64,6 +64,7 @@ export interface MissionSummaryPayload {
   passed: number;
   not_applicable: number;
   probes_run: number;
+  llm_calls: number;
   agent_errors: number;
   duration_s: number;
   reason: string;

@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 class Settings:
     scope_path: Path = ROOT / "scope" / "local-target.yaml"
     runs_dir: Path = ROOT / "runs"
+    db_path: Path = ROOT / "runs" / "autored.db"
     headless: bool = True
     max_active_missions: int = 1
     api_token: str | None = None          # if set, required as Bearer / ?token=
@@ -23,6 +24,9 @@ class Settings:
             s.scope_path = Path(v)
         if v := os.environ.get("AUTORED_RUNS_DIR"):
             s.runs_dir = Path(v)
+            s.db_path = s.runs_dir / "autored.db"
+        if v := os.environ.get("AUTORED_DB"):
+            s.db_path = Path(v)
         s.headless = os.environ.get("AUTORED_HEADLESS", "1") != "0"
         s.max_active_missions = int(os.environ.get("AUTORED_MAX_ACTIVE_MISSIONS", s.max_active_missions))
         s.api_token = os.environ.get("AUTORED_API_TOKEN") or None

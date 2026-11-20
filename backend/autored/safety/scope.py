@@ -96,6 +96,8 @@ class Target(BaseModel):
     authorized_methods: list[str] = ["connectivity", "security_probes"]
     identify_as: str | None = None          # User-Agent / X-Bug-Bounty value for RoE-compliant traffic
     include_optional_probes: bool = False   # run multi-turn / advanced probes too
+    adaptive_budget: dict | None = None     # {max_rounds, max_probes, max_llm_calls} for the adaptive Commander
+    planner_model: str | None = None        # local Ollama model for the adaptive planner
     connectivity_message: str = "What can you help me with today?"
     limits: Limits = Limits()
 

@@ -140,6 +140,19 @@ class SpecialistAgent(Agent):
         self.emit("test.verdict", TestVerdictPayload(probe_id=probe.id, verdict=ev.verdict, rationale=ev.rationale, attempt=attempt))
         return ev, prompt
 
+    async def candidate_from(self, probe: Probe, ev, prompt: str) -> FindingPayload:
+        """Create + emit a finding from an evaluation. inconclusive => no reproduction possible."""
+        fid = f"F-{uuid.uuid4().hex[:8]}"
+        shot = await self.browser.screenshot(self.ctx.artifacts_dir / f"{fid}.png")
+        status = FindingStatus.inconclusive if ev.verdict == Verdict.inconclusive else FindingStatus.candidate
+        f = FindingPayload(
+            finding_id=fid, probe_id=probe.id, category=probe.agent, title=probe.title,
+            severity=probe.severity, status=status, prompt=prompt,
+            evidence=[*ev.evidence, Evidence(kind="screenshot", detail="Browser at time of response", artifact=shot.name)],
+            attempts=1, reproductions=1 if ev.verdict == Verdict.vulnerable else 0)
+        self.emit("finding.candidate", f)
+        return f
+
     async def assess(self, task_id: str, probes: list[Probe]) -> list[tuple[Probe, FindingPayload]]:
         rec = self._begin(task_id, "assess", [p.id for p in probes])
         candidates: list[tuple[Probe, FindingPayload]] = []
@@ -154,17 +167,8 @@ class SpecialistAgent(Agent):
                     self.emit("test.verdict", TestVerdictPayload(probe_id=probe.id, verdict=Verdict.error, rationale=rationale))
                     continue
                 if ev.verdict in (Verdict.vulnerable, Verdict.suspected, Verdict.inconclusive):
-                    fid = f"F-{uuid.uuid4().hex[:8]}"
-                    shot = await self.browser.screenshot(self.ctx.artifacts_dir / f"{fid}.png")
-                    # inconclusive = could not be evaluated -> no reproduction attempt possible
-                    status = FindingStatus.inconclusive if ev.verdict == Verdict.inconclusive else FindingStatus.candidate
-                    f = FindingPayload(
-                        finding_id=fid, probe_id=probe.id, category=probe.agent, title=probe.title,
-                        severity=probe.severity, status=status, prompt=prompt,
-                        evidence=[*ev.evidence, Evidence(kind="screenshot", detail="Browser at time of response", artifact=shot.name)],
-                        attempts=1, reproductions=1 if ev.verdict == Verdict.vulnerable else 0)
-                    self.emit("finding.candidate", f)
-                    if status == FindingStatus.candidate:
+                    f = await self.candidate_from(probe, ev, prompt)
+                    if f.status == FindingStatus.candidate:
                         candidates.append((probe, f))
             self._end(rec, "completed", f"{len(probes)} probes, {len(candidates)} candidate(s)")
             return candidates

@@ -164,7 +164,8 @@ class Commander(Agent):
             inconclusive=st(FindingStatus.inconclusive),
             passed=verdicts.count(Verdict.not_observed.value),
             not_applicable=verdicts.count(Verdict.not_applicable.value),
-            probes_run=sum(v.probes_run for v in self.ctx.snapshot.agents.values()))
+            probes_run=sum(v.probes_run for v in self.ctx.snapshot.agents.values()),
+            llm_calls=getattr(getattr(self, "llm", None), "calls", 0))
         self.state.current_task = None
         self.set_status(AgentStatus.done if phase == MissionPhase.completed else AgentStatus.stopped,
                         f"Mission {phase.value}")

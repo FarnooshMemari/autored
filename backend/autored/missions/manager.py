@@ -40,11 +40,12 @@ class Mission:
 
 class MissionManager:
     def __init__(self, scopes: ScopeRegistry, runtime: BrowserRuntime, frames: FrameHub,
-                 runs_dir: Path, max_active: int = 1, estop: EmergencyStop | None = None):
+                 runs_dir: Path, max_active: int = 1, estop: EmergencyStop | None = None, store=None):
         self.scopes, self.runtime, self.frames = scopes, runtime, frames
         self.runs_dir, self.max_active = runs_dir, max_active
         self.estop = estop or EmergencyStop()
         self.missions: dict[str, Mission] = {}
+        self.store = store   # optional MissionStore for durable persistence
 
     def active(self) -> list[Mission]:
         return [m for m in self.missions.values() if m.active]
@@ -64,9 +65,9 @@ class MissionManager:
         bad = [a for a in (agents or []) if a not in SPECIALIST_IDS]
         if bad:
             raise MissionRejected(f"unknown agents: {bad}")
-        if mode not in ("assess", "connectivity"):
+        if mode not in ("assess", "connectivity", "adaptive"):
             raise MissionRejected(f"unknown mode: {mode}")
-        if mode == "assess" and not target.allows("security_probes"):
+        if mode in ("assess", "adaptive") and not target.allows("security_probes"):
             raise MissionRejected(
                 f"target '{target_id}' authorizes {target.authorized_methods}; security probes are not "
                 "permitted. Run mode='connectivity' (discovery + one benign message) instead.")
@@ -89,7 +90,14 @@ class MissionManager:
         return m
 
     async def _run(self, m: Mission, agents: list[str] | None) -> None:
-        commander = Commander(m.ctx, agents)
+        if m.ctx.mode == "adaptive":
+            from ..agents.adaptive import AdaptiveBudget, AdaptiveCommander
+            from ..agents.llm import LLMClient, LLMConfig
+            b = AdaptiveBudget(**(m.ctx.target.adaptive_budget or {}))
+            cfg = LLMConfig(model=m.ctx.target.planner_model) if m.ctx.target.planner_model else LLMConfig()
+            commander = AdaptiveCommander(m.ctx, agents, llm=LLMClient(cfg, max_calls=b.max_llm_calls), budget=b)
+        else:
+            commander = Commander(m.ctx, agents)
         inner = asyncio.create_task(commander.run())
         try:
             done, _ = await asyncio.wait({inner}, timeout=m.ctx.target.limits.mission_timeout_s)
@@ -104,6 +112,12 @@ class MissionManager:
             await asyncio.gather(inner, return_exceptions=True)
         finally:
             m.ctx.log.close()
+            if self.store is not None:
+                try:
+                    self.store.save_mission(m.snapshot, mode=m.ctx.mode, created_at=m.created_at)
+                except Exception as e:   # persistence must never crash a mission
+                    import logging
+                    logging.getLogger("autored").warning("store save failed: %s", e)
 
     async def stop(self, mission_id: str, reason: str = "stopped by operator") -> bool:
         m = self.missions.get(mission_id)

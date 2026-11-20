@@ -191,6 +191,11 @@
           "title": "Probes Run",
           "type": "integer"
         },
+        "llm_calls": {
+          "default": 0,
+          "title": "Llm Calls",
+          "type": "integer"
+        },
         "agent_errors": {
           "default": 0,
           "title": "Agent Errors",
