@@ -4,7 +4,7 @@
  * Keep in sync; the parity test in state/missionReducer.test.ts replays a
  * real backend event log through this contract.
  */
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export type AgentId = "commander" | "injection" | "leakage" | "hierarchy" | "tools";
 export const SPECIALIST_IDS = ["injection", "leakage", "hierarchy", "tools"] as const;
@@ -16,7 +16,7 @@ export type AgentStatus =
 
 export type MissionPhase =
   | "created" | "discovery" | "planning" | "execution" | "consolidation"
-  | "completed" | "aborted" | "failed";
+  | "completed" | "aborted" | "failed" | "interrupted";
 
 export type Verdict = "vulnerable" | "suspected" | "not_observed" | "inconclusive" | "not_applicable" | "error";
 export type FindingStatus = "candidate" | "confirmed" | "suspected" | "inconclusive";

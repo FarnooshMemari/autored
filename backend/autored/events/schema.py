@@ -13,7 +13,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 AgentId = Literal["commander", "injection", "leakage", "hierarchy", "tools"]
 SPECIALIST_IDS: tuple[AgentId, ...] = ("injection", "leakage", "hierarchy", "tools")
@@ -45,6 +45,7 @@ class MissionPhase(str, Enum):
     completed = "completed"
     aborted = "aborted"
     failed = "failed"
+    interrupted = "interrupted"   # process died mid-mission; reconciled on restart
 
 
 class Verdict(str, Enum):

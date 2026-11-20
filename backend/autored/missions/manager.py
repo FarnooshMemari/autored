@@ -15,7 +15,7 @@ from ..safety.scope import ScopeError, ScopeRegistry
 from .context import MissionContext
 from .snapshot import MissionSnapshot
 
-TERMINAL = {MissionPhase.completed, MissionPhase.aborted, MissionPhase.failed}
+TERMINAL = {MissionPhase.completed, MissionPhase.aborted, MissionPhase.failed, MissionPhase.interrupted}
 
 
 class MissionRejected(Exception):
@@ -49,6 +49,14 @@ class MissionManager:
 
     def active(self) -> list[Mission]:
         return [m for m in self.missions.values() if m.active]
+
+    def reconcile(self) -> list[str]:
+        """On startup, mark missions whose process died mid-run as 'interrupted'
+        (partial findings preserved from the event log). Returns reconciled ids."""
+        if self.store is None:
+            return []
+        from .recovery import reconcile_runs
+        return reconcile_runs(self.runs_dir, self.store, {m.id for m in self.active()})
 
     def create(self, target_id: str, operator: str, acknowledged: bool,
                agents: list[str] | None = None, mode: str = "assess") -> Mission:

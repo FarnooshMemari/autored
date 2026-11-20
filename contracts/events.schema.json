@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AutoRed event stream",
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "envelope": {
     "description": "Wire envelope. `seq` is per-mission, strictly increasing, gap-free.",
     "properties": {
       "v": {
-        "default": 3,
+        "default": 4,
         "title": "V",
         "type": "integer"
       },
@@ -135,7 +135,8 @@
         "consolidation",
         "completed",
         "aborted",
-        "failed"
+        "failed",
+        "interrupted"
       ],
       "title": "MissionPhase",
       "type": "string"

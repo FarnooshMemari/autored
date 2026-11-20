@@ -27,6 +27,7 @@ def main() -> int:
     rep = sub.add_parser("report", help="Generate a reproducible report from a mission's event log")
     rep.add_argument("mission_id")
     sub.add_parser("missions", help="List stored missions")
+    sub.add_parser("reconcile", help="Reconcile interrupted missions after a crash/restart")
     a = ap.parse_args()
 
     if a.cmd == "export-schema":
@@ -35,15 +36,21 @@ def main() -> int:
         print(f"wrote {out}")
         return 0
 
+    if a.cmd == "reconcile":
+        from .missions.recovery import reconcile_runs
+        from .storage.store import MissionStore
+        s = Settings.from_env()
+        rec = reconcile_runs(s.runs_dir, MissionStore(s.db_path))
+        print(f"reconciled {len(rec)} interrupted mission(s): {rec}" if rec else "no interrupted missions to reconcile")
+        return 0
+
     if a.cmd == "missions":
-        from .config import Settings
         from .storage.store import MissionStore
         for m in MissionStore(Settings.from_env().db_path).list_missions():
             print(f"{m['id']}  {m['target_id']:<16} {m['mode']:<12} {m['phase']:<10} confirmed={m['confirmed']}  {m['created_at']}")
         return 0
 
     if a.cmd == "report":
-        from .config import Settings
         from .reporting.report import replay, report_json, report_markdown
         run_dir = Settings.from_env().runs_dir / a.mission_id
         snap, events = replay(run_dir / "events.jsonl")

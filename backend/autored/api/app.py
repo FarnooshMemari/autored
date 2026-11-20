@@ -15,6 +15,7 @@ from ..events.schema import ALL_AGENT_IDS, SCHEMA_VERSION, Event, FindingPayload
 from ..missions.manager import MissionManager, MissionRejected
 from ..missions.snapshot import MissionSnapshot
 from ..safety.scope import ScopeRegistry
+from ..storage.store import MissionStore
 
 
 class CreateMission(BaseModel):
@@ -41,10 +42,16 @@ def create_app(settings: Settings | None = None, scopes: ScopeRegistry | None = 
     settings = settings or Settings.from_env()
     runtime, frames = BrowserRuntime(headless=settings.headless), FrameHub()
     manager = MissionManager(scopes or ScopeRegistry.load(settings.scope_path), runtime, frames,
-                             settings.runs_dir, settings.max_active_missions)
+                             settings.runs_dir, settings.max_active_missions, store=MissionStore(settings.db_path))
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        try:
+            rec = manager.reconcile()
+            if rec:
+                import logging; logging.getLogger("autored").warning("reconciled interrupted missions: %s", rec)
+        except Exception as e:
+            import logging; logging.getLogger("autored").warning("reconcile failed: %s", e)
         yield
         await manager.emergency_stop("server shutdown")
         await runtime.close()
