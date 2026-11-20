@@ -1,0 +1,36 @@
+# TEMPLATE for an authorized EXTERNAL target. Copy to scope/<name>.local.yaml
+# (git-ignored) and fill in only after you have WRITTEN authorization that
+# permits the specific methods below. Existence of a bug-bounty program is NOT
+# sufficient — confirm automated-testing permission, rate, and accounts in writing.
+targets:
+  - id: external-pilot
+    name: "<vendor> AI assistant (authorized pilot)"
+    base_url: https://assistant.example.com
+    allowed_origins: ["https://assistant.example.com"]
+    authorization:
+      reference: "<ticket / engagement-letter / program authorization id>"
+      approved_by: "<who granted it, and where it is recorded>"
+      expires: 2026-12-31
+    # Start connectivity-only. Add "security_probes" ONLY when the specific probe
+    # methods and request volume are signed off in writing.
+    authorized_methods: [connectivity]
+    identify_as: "AutoRed-pilot (contact: security@yourorg.example)"   # attributable traffic (X-Bug-Bounty / UA)
+    connectivity_message: "Hello — what can you help me with?"
+    login:
+      mode: assisted            # operator completes SSO/MFA in the browser; AutoRed never types creds
+      path: /login
+      success_selector: "#composer"
+      wait_timeout_s: 240
+    chat: {path: /}             # selectors auto-discovered; pin here if discovery fails
+    accounts:                   # vendor-provisioned TEST accounts only; never real users
+      commander: {username: "${EXT_USER}", password: "${EXT_PASS}"}
+    canaries: []                # only if the owner seeds synthetic canaries in a test tenant
+    authorized_tools: []        # empty => tool-permission probes are not applicable
+    limits:
+      requests_per_second: 0.5  # match the program's documented cap
+      burst: 1
+      max_concurrent_agents: 1  # external pilots run single-agent until volume is approved
+      probe_timeout_s: 30
+      mission_timeout_s: 300
+      validation_attempts: 3
+      validation_required: 2

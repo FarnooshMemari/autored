@@ -87,10 +87,12 @@ Emit = Callable[[str, object], None]
 
 class AgentBrowser:
     def __init__(self, runtime: BrowserRuntime, frames: FrameHub, mission_id: str, agent_id: str,
-                 guard: OriginGuard, emit: Emit, action_timeout_ms: int = 15000):
+                 guard: OriginGuard, emit: Emit, action_timeout_ms: int = 15000,
+                 identify_as: str | None = None):
         self.runtime, self.frames, self.guard, self.emit = runtime, frames, guard, emit
         self.mission_id, self.agent_id = mission_id, agent_id
         self.action_timeout_ms = action_timeout_ms
+        self.identify_as = identify_as  # RoE: make automated traffic attributable
         self.context: BrowserContext | None = None
         self.page: Page | None = None
         self.context_id = ""
@@ -98,7 +100,11 @@ class AgentBrowser:
 
     async def open(self) -> Page:
         browser = await self.runtime.browser()
-        self.context = await browser.new_context(viewport={"width": 1100, "height": 720})
+        ctx_kwargs = {"viewport": {"width": 1100, "height": 720}}
+        if self.identify_as:  # attributable automated traffic per bug-bounty Rules of Engagement
+            ctx_kwargs["user_agent"] = self.identify_as
+            ctx_kwargs["extra_http_headers"] = {"X-Bug-Bounty": self.identify_as}
+        self.context = await browser.new_context(**ctx_kwargs)
         self.context.set_default_timeout(self.action_timeout_ms)
         self.context_id = f"{self.agent_id}-{uuid.uuid4().hex[:8]}"
         await self.context.route("**/*", self._enforce_scope)

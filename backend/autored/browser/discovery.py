@@ -49,6 +49,12 @@ LAUNCHER_CANDIDATES = [
     'button:has-text("Chat")', 'button:has-text("Help")', 'button:has-text("Support")',
     'button:has-text("Message")',
 ]
+OVERLAY_SELECTORS = ['[role=dialog]', '.modal', '[aria-modal="true"]']
+DISMISS_SELECTORS = [
+    '[aria-label*="close" i]', 'button:has-text("Got it")', 'button:has-text("Confirm")',
+    'button:has-text("Accept")', 'button:has-text("Okay")', 'button:has-text("OK")',
+    'button:has-text("Dismiss")', 'button:has-text("Continue")',
+]
 
 ChatScope = Page | FrameLocator
 
@@ -137,7 +143,39 @@ async def box_of(scope: ChatScope, selector: str, index: int = 0) -> dict | None
         return None
 
 
+async def dismiss_overlays(page: Page, rounds: int = 3) -> None:
+    """Generic: close blocking first-run modals / cookie banners (Escape, then a
+    close/confirm button) so the composer underneath becomes reachable. Not
+    target-specific; helps real-world sites broadly."""
+    for _ in range(rounds):
+        visible = False
+        for s in OVERLAY_SELECTORS:
+            try:
+                if await page.locator(s).count() and await page.locator(s).first.is_visible():
+                    visible = True
+                    break
+            except Exception:
+                pass
+        if not visible:
+            return
+        try:
+            await page.keyboard.press("Escape")
+            await page.wait_for_timeout(250)
+        except Exception:
+            pass
+        for c in DISMISS_SELECTORS:
+            try:
+                loc = page.locator(c).first
+                if await loc.count() and await loc.is_visible():
+                    await loc.click(timeout=1000)
+                    break
+            except Exception:
+                pass
+        await page.wait_for_timeout(250)
+
+
 async def discover(page: Page, hints: ChatHints, greeting: str, timeout_s: float) -> tuple[ChatHandle, str, dict | None]:
+    await dismiss_overlays(page)
     # 1. let dynamic UIs render; 2. open a launcher if the composer is hidden behind one.
     used_launcher = None
     if not await _wait_for_any_input(page, hints.input, min(2.0, timeout_s)):
@@ -226,6 +264,7 @@ async def attach(page: Page, hints: ChatHints, timeout_s: float) -> ChatHandle:
     Commander already discovered and verified them), without greeting again."""
     if not (hints.input and hints.assistant_message):
         raise ChatError("attach requires pinned input and assistant_message")
+    await dismiss_overlays(page)
     if hints.launcher:
         try:
             await page.locator(hints.launcher).first.click()

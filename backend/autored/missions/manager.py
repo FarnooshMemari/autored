@@ -50,7 +50,7 @@ class MissionManager:
         return [m for m in self.missions.values() if m.active]
 
     def create(self, target_id: str, operator: str, acknowledged: bool,
-               agents: list[str] | None = None) -> Mission:
+               agents: list[str] | None = None, mode: str = "assess") -> Mission:
         if self.estop.engaged:
             raise MissionRejected(f"emergency stop engaged: {self.estop.reason}")
         try:
@@ -64,13 +64,21 @@ class MissionManager:
         bad = [a for a in (agents or []) if a not in SPECIALIST_IDS]
         if bad:
             raise MissionRejected(f"unknown agents: {bad}")
+        if mode not in ("assess", "connectivity"):
+            raise MissionRejected(f"unknown mode: {mode}")
+        if mode == "assess" and not target.allows("security_probes"):
+            raise MissionRejected(
+                f"target '{target_id}' authorizes {target.authorized_methods}; security probes are not "
+                "permitted. Run mode='connectivity' (discovery + one benign message) instead.")
+        if mode == "connectivity" and not target.allows("connectivity"):
+            raise MissionRejected(f"target '{target_id}' does not authorize connectivity checks")
         mid = f"M-{datetime.now(timezone.utc):%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:4]}"
         run_dir = self.runs_dir / mid
         ctx = MissionContext(
             mission_id=mid, target=target, runtime=self.runtime, frames=self.frames,
             log=MissionEventLog(mid, run_dir), snapshot=MissionSnapshot.new(mid, target_id, operator),
             limiter=RateLimiter(target.limits.requests_per_second, target.limits.burst),
-            artifacts_dir=run_dir / "artifacts")
+            artifacts_dir=run_dir / "artifacts", mode=mode)
         (run_dir / "authorization.txt").write_text(
             f"mission={mid}\noperator={operator}\ntarget={target.id} {target.base_url}\n"
             f"authorization={target.authorization.reference} approved_by={target.authorization.approved_by} "

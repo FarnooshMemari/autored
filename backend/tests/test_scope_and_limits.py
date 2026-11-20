@@ -60,3 +60,10 @@ async def test_rate_limiter_enforces_rate():
     t0 = time.monotonic()
     await asyncio.gather(*(rl.acquire() for _ in range(6)))
     assert time.monotonic() - t0 >= 5 / 20 * 0.9
+
+
+def test_authorized_methods_gate():
+    t = target_from_scope("http://127.0.0.1:9")
+    assert t.allows("connectivity") and t.allows("security_probes")  # default
+    t.authorized_methods = ["connectivity"]
+    assert t.allows("connectivity") and not t.allows("security_probes")

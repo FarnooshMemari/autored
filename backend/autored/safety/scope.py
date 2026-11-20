@@ -89,7 +89,16 @@ class Target(BaseModel):
     canaries: list[Canary] = []
     oracle_audit_path: str | None = None
     authorized_tools: list[str] = []
+    # Which methods the written authorization permits. "connectivity" = discover +
+    # send benign messages only; "security_probes" = run the four-agent suite.
+    # External targets typically start as ["connectivity"] until methods are signed off.
+    authorized_methods: list[str] = ["connectivity", "security_probes"]
+    identify_as: str | None = None          # User-Agent / X-Bug-Bounty value for RoE-compliant traffic
+    connectivity_message: str = "What can you help me with today?"
     limits: Limits = Limits()
+
+    def allows(self, method: str) -> bool:
+        return method in self.authorized_methods
 
     def url(self, path: str) -> str:
         return self.base_url.rstrip("/") + path

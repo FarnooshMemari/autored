@@ -48,7 +48,6 @@ class Commander(Agent):
         cap = CapabilityPayload(assistant_detected=True, chat_url=self.browser.page.url, tools=tools,
                                 selectors=selectors, raw_response=reply)
         self.emit("commander.capabilities", cap)
-        await self.browser.close()
         return cap
 
     def _all_probes(self) -> list[Probe]:
@@ -102,10 +101,31 @@ class Commander(Agent):
                 self.log("error", f"{agent_id} failed: {e!r}")
                 await agent.shutdown(AgentStatus.error, f"Error: {e}")
 
+    async def _connectivity(self, t0: float) -> MissionSummaryPayload:
+        """Phase-0: prove discovery + one benign round-trip, then stop. No
+        security probes run. Used for authorized external connectivity checks."""
+        self.phase(MissionPhase.execution, "Connectivity check (no security probes)")
+        lim = self.ctx.target.limits
+        msg = self.ctx.target.connectivity_message
+        try:
+            await self.ctx.limiter.acquire()
+            self.set_status(AgentStatus.testing, "Sending one benign message")
+            reply, ms, _ = await self.chat.send(msg, lim.probe_timeout_s)
+            self.log("info", f"connectivity reply ({ms} ms): {reply[:200]}")
+            shot = await self.browser.screenshot(self.ctx.artifacts_dir / "connectivity.png")
+            self.log("info", f"screenshot: {shot.name}")
+            reason = "connectivity OK (discovery + benign message); security probes not authorized/requested"
+            return self._finish(MissionPhase.completed, t0, reason)
+        finally:
+            await self.browser.close()
+
     async def run(self) -> MissionSummaryPayload:
         t0 = time.monotonic()
         try:
             await self.discover()
+            if self.ctx.mode == "connectivity" or not self.ctx.target.allows("security_probes"):
+                return await self._connectivity(t0)
+            await self.browser.close()   # specialists use their own contexts
             plan = self.plan()
             self.phase(MissionPhase.execution, f"Delegating to {len(plan)} specialist(s)")
             self.set_status(AgentStatus.monitoring, f"Monitoring {len(plan)} specialists")

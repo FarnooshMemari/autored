@@ -48,6 +48,13 @@ cd frontend && npm run dev
 Or headless, from `backend/`:
 `.venv/bin/python -m autored run-mission acmehelp-local --operator you --i-am-authorized`
 
+**Connectivity-only (Phase 0) for an authorized external target** — discovery +
+one benign message, **no security probes**:
+`.venv/bin/python -m autored connectivity-check <target_id> --operator you --i-am-authorized`
+Security probes require the target's scope `authorized_methods` to include
+`security_probes`; otherwise the four-agent suite is refused. See
+[docs/M3_PLAN.md](docs/M3_PLAN.md) and [docs/EXTERNAL_TARGETS.md](docs/EXTERNAL_TARGETS.md).
+
 Against the vulnerable target, expect 6 confirmed findings (each reproduced in
 fresh contexts), 2 probes `not_observed`, and 1 probe skipped by the Commander
 because its tool is not authorized in scope. Against the hardened target, expect 0 findings.
@@ -109,9 +116,11 @@ without it, tool-boundary results can only be `inconclusive`, never `confirmed`.
 
 ## Limitations
 
-- Validated against **self-hosted synthetic targets only**. No third-party
-  production target has been tested; doing so requires verified authorization —
-  see [docs/EXTERNAL_TARGETS.md](docs/EXTERNAL_TARGETS.md).
+- **Executed against a real LLM** (unmodified open-webui + `llama3.2:1b`,
+  self-hosted) in addition to the synthetic targets — see
+  [docs/M3_EXECUTION.md](docs/M3_EXECUTION.md). No **externally-hosted** third-party
+  target has been tested; that requires verified authorization
+  ([docs/EXTERNAL_TARGETS.md](docs/EXTERNAL_TARGETS.md)).
 - Probe library is still small (2–3 probes per category) and mostly single-turn
   (multi-turn history is tracked; multi-turn *probes* are M2b).
 - Assisted-login and streaming/async handling are implemented but exercised only

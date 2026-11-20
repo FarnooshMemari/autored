@@ -49,7 +49,7 @@ class Agent:
         self.state = AgentRuntimeState()
         self.account = ctx.target.accounts[agent_id]
         self.browser = AgentBrowser(ctx.runtime, ctx.frames, ctx.mission_id, agent_id,
-                                    ctx.target.guard(), self.emit)
+                                    ctx.target.guard(), self.emit, identify_as=ctx.target.identify_as)
         self.chat = ChatSession(self.browser, ctx.target)
 
     def emit(self, type_: str, payload) -> None:

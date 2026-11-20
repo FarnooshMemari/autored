@@ -19,6 +19,10 @@ def main() -> int:
     r.add_argument("--operator", required=True)
     r.add_argument("--i-am-authorized", action="store_true", help="Confirm written authorization for this target")
     r.add_argument("--agents", nargs="*")
+    c = sub.add_parser("connectivity-check", help="Phase-0: discover + one benign message, NO security probes")
+    c.add_argument("target_id")
+    c.add_argument("--operator", required=True)
+    c.add_argument("--i-am-authorized", action="store_true")
     a = ap.parse_args()
 
     if a.cmd == "export-schema":
@@ -35,7 +39,9 @@ def main() -> int:
         s = Settings.from_env()
         rt = BrowserRuntime(headless=s.headless)
         mgr = MissionManager(ScopeRegistry.load(s.scope_path), rt, FrameHub(), s.runs_dir)
-        m = mgr.create(a.target_id, a.operator, a.i_am_authorized, a.agents)
+        mode = "connectivity" if a.cmd == "connectivity-check" else "assess"
+        agents = getattr(a, "agents", None)
+        m = mgr.create(a.target_id, a.operator, a.i_am_authorized, agents, mode=mode)
         async for e in m.ctx.log.subscribe():
             if e.type in ("mission.status", "task.assigned", "test.verdict", "finding.updated", "mission.completed", "log"):
                 print(f"[{e.seq:04}] {e.agent_id:<10} {e.type:<18} {json.dumps(e.payload)[:160]}")

@@ -178,3 +178,25 @@ async def test_http_and_websocket_api(vulnerable_target, scopes_for, tmp_path):
             shot = next(e["artifact"] for e in findings[0]["evidence"] if e["kind"] == "screenshot")
             assert (await c.get(f"/api/missions/{mid}/artifacts/{shot}")).headers["content-type"] == "image/png"
             assert (await c.get(f"/api/missions/{mid}/artifacts/..%2F..%2Fsecret.png")).status_code in (400, 404)
+
+
+async def test_connectivity_mode_runs_no_probes(vulnerable_target, scopes_for, runtime, tmp_path):
+    """A connectivity check discovers + sends one benign message and stops.
+    No security probe runs, even against a vulnerable target."""
+    scopes = scopes_for(vulnerable_target.url)
+    scopes.list()[0].authorized_methods = ["connectivity"]  # external-target posture
+    mgr = manager(scopes, runtime, tmp_path)
+
+    # assess mode is refused when security probes are not authorized
+    with pytest.raises(MissionRejected, match="not permitted|connectivity"):
+        mgr.create("acmehelp-local", "pytest", True, mode="assess")
+
+    m = mgr.create("acmehelp-local", "pytest", True, mode="connectivity")
+    await asyncio.wait_for(m.task, 60)
+    s = m.snapshot
+    assert s.phase == MissionPhase.completed
+    assert s.capabilities and s.capabilities.assistant_detected        # discovery worked
+    assert s.summary.probes_run == 0 and s.findings == {}              # no probes, no findings
+    types = {e.type for e in m.ctx.log.events}
+    assert "test.started" not in types and "finding.candidate" not in types
+    assert any(e.type == "browser.navigated" for e in m.ctx.log.events)  # real browser activity streamed

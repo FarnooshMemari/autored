@@ -31,6 +31,7 @@ class MissionContext:
     effective_hints: ChatHints | None = None   # discovered chat config, reused by specialists
     discovered_tools: list[str] = field(default_factory=list)
     abort_reason: str = ""
+    mode: str = "assess"   # "assess" = full suite; "connectivity" = discover + benign message only
     _locks: dict[str, asyncio.Lock] = field(default_factory=lambda: defaultdict(asyncio.Lock))
 
     def emit(self, agent_id: str, type_: str, payload: BaseModel) -> Event:
