@@ -3,7 +3,7 @@
 _Living checkpoint. Update after each increment so work resumes after interruption._
 
 ## Last successful commit
-`473260b` (CI green) — tester-controlled ground truth / Exp D.
+`7e3b54e` (CI green) — hybrid strategy. Hardening phase: F (crash recovery), deception +/-, security, visual QA, durable history, hybrid all done + CI-green.
 
 ## Baseline that must be preserved (verified working)
 Backend 46 tests + frontend 6 green; M1–M5 shipped: target-independent discovery,
@@ -30,6 +30,7 @@ Is it actually working (not just code)? Simulated vs real success? False positiv
 Generalizes beyond the dev target? Simpler/more reliable option? Evidence strong enough?
 
 ## Exact next action
-Optional next increments (not blockers): dedicated deception experiment (E) and
-full reliability/recovery experiment (F, incl. in-flight mission resume). Core
-product + research priorities + honest experiments A–D delivered and CI-green.
+Finalize: document the fixed/adaptive/hybrid experiment (B+) result, update the
+delivery report + verification matrix, final CI. Remaining (non-blocking): re-drive
+an in-flight mission after crash (currently reconciles state only); stronger planner;
+external authorized target.

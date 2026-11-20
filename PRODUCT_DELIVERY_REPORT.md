@@ -23,8 +23,9 @@ non-destructive · no paid APIs · no AI co-author trailers.
 - **Real tool-calling assessment.** Against open-webui + a real LLM (`llama3.2:3b`,
   native tool-calling) with an auditable tool-execution log, AutoRed confirmed
   customer→staff-only-refund violations (incl. a multi-turn attack), reproduced 4/4.
-- **Adaptive LLM Commander.** A bounded local-Ollama planner loop (plan→delegate→
-  observe→revise→decide) that proposes creative probes but never lowers the evidence bar.
+- **Adaptive + Hybrid Commanders.** A bounded local-Ollama planner loop (plan→delegate→
+  observe→revise→decide) that proposes creative probes but never lowers the evidence bar;
+  a **hybrid** mode runs the fixed suite first then adaptive follow-ups seeded by its results.
 - **Complete dark-first dashboard** (React/TS) on **real** backend data: Mission
   Control, Live Operations (five animated agent characters + **real live browser frames
   with coordinate overlays** + activity feed), Findings Explorer + Evidence Inspector
@@ -77,6 +78,8 @@ target, and the Vite dev server; open the dashboard and launch an assessment.
 ## Tests & CI
 Backend **47** (`pytest`, incl. real-Chromium E2E, adaptive loop, storage/reporting,
 stats). Frontend **6** + typecheck + build. **CI green** on every pushed commit.
+
+See **[VERIFICATION_MATRIX.md](VERIFICATION_MATRIX.md)** for the full capability→evidence table.
 
 ## Acceptance criteria (Section 13) — honest status
 1 starts from docs ✓ · 2 FE+BE together ✓ · 3 five agents real workflow ✓ · 4 configure+run ✓ ·
