@@ -1,0 +1,722 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AutoRed event stream",
+  "schemaVersion": 1,
+  "envelope": {
+    "description": "Wire envelope. `seq` is per-mission, strictly increasing, gap-free.",
+    "properties": {
+      "v": {
+        "default": 1,
+        "title": "V",
+        "type": "integer"
+      },
+      "id": {
+        "title": "Id",
+        "type": "string"
+      },
+      "seq": {
+        "default": 0,
+        "title": "Seq",
+        "type": "integer"
+      },
+      "mission_id": {
+        "title": "Mission Id",
+        "type": "string"
+      },
+      "agent_id": {
+        "enum": [
+          "commander",
+          "injection",
+          "leakage",
+          "hierarchy",
+          "tools"
+        ],
+        "title": "Agent Id",
+        "type": "string"
+      },
+      "ts": {
+        "format": "date-time",
+        "title": "Ts",
+        "type": "string"
+      },
+      "type": {
+        "enum": [
+          "mission.status",
+          "mission.completed",
+          "agent.status",
+          "task.assigned",
+          "task.completed",
+          "commander.capabilities",
+          "commander.plan",
+          "browser.navigated",
+          "browser.action",
+          "browser.blocked",
+          "test.started",
+          "test.response",
+          "test.verdict",
+          "finding.candidate",
+          "finding.updated",
+          "log"
+        ],
+        "title": "Type",
+        "type": "string"
+      },
+      "payload": {
+        "title": "Payload",
+        "type": "object"
+      }
+    },
+    "required": [
+      "mission_id",
+      "agent_id",
+      "type",
+      "payload"
+    ],
+    "title": "Event",
+    "type": "object"
+  },
+  "payloadByType": {
+    "mission.status": {
+      "$ref": "#/$defs/MissionStatusPayload"
+    },
+    "mission.completed": {
+      "$ref": "#/$defs/MissionSummaryPayload"
+    },
+    "agent.status": {
+      "$ref": "#/$defs/AgentStatusPayload"
+    },
+    "task.assigned": {
+      "$ref": "#/$defs/TaskAssignedPayload"
+    },
+    "task.completed": {
+      "$ref": "#/$defs/TaskCompletedPayload"
+    },
+    "commander.capabilities": {
+      "$ref": "#/$defs/CapabilityPayload"
+    },
+    "commander.plan": {
+      "$ref": "#/$defs/PlanPayload"
+    },
+    "browser.navigated": {
+      "$ref": "#/$defs/BrowserNavigatedPayload"
+    },
+    "browser.action": {
+      "$ref": "#/$defs/BrowserActionPayload"
+    },
+    "browser.blocked": {
+      "$ref": "#/$defs/BrowserBlockedPayload"
+    },
+    "test.started": {
+      "$ref": "#/$defs/TestStartedPayload"
+    },
+    "test.response": {
+      "$ref": "#/$defs/TestResponsePayload"
+    },
+    "test.verdict": {
+      "$ref": "#/$defs/TestVerdictPayload"
+    },
+    "finding.candidate": {
+      "$ref": "#/$defs/FindingPayload"
+    },
+    "finding.updated": {
+      "$ref": "#/$defs/FindingPayload"
+    },
+    "log": {
+      "$ref": "#/$defs/LogPayload"
+    }
+  },
+  "$defs": {
+    "MissionPhase": {
+      "enum": [
+        "created",
+        "discovery",
+        "planning",
+        "execution",
+        "consolidation",
+        "completed",
+        "aborted",
+        "failed"
+      ],
+      "title": "MissionPhase",
+      "type": "string"
+    },
+    "MissionStatusPayload": {
+      "properties": {
+        "phase": {
+          "$ref": "#/$defs/MissionPhase"
+        },
+        "message": {
+          "default": "",
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "phase"
+      ],
+      "title": "MissionStatusPayload",
+      "type": "object"
+    },
+    "MissionSummaryPayload": {
+      "properties": {
+        "phase": {
+          "$ref": "#/$defs/MissionPhase"
+        },
+        "confirmed": {
+          "title": "Confirmed",
+          "type": "integer"
+        },
+        "inconclusive": {
+          "title": "Inconclusive",
+          "type": "integer"
+        },
+        "probes_run": {
+          "title": "Probes Run",
+          "type": "integer"
+        },
+        "agent_errors": {
+          "default": 0,
+          "title": "Agent Errors",
+          "type": "integer"
+        },
+        "duration_s": {
+          "title": "Duration S",
+          "type": "number"
+        },
+        "reason": {
+          "default": "",
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "phase",
+        "confirmed",
+        "inconclusive",
+        "probes_run",
+        "duration_s"
+      ],
+      "title": "MissionSummaryPayload",
+      "type": "object"
+    },
+    "AgentStatus": {
+      "enum": [
+        "idle",
+        "starting",
+        "authenticating",
+        "discovering",
+        "planning",
+        "monitoring",
+        "navigating",
+        "testing",
+        "validating",
+        "waiting",
+        "done",
+        "error",
+        "stopped"
+      ],
+      "title": "AgentStatus",
+      "type": "string"
+    },
+    "AgentStatusPayload": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/AgentStatus"
+        },
+        "activity": {
+          "description": "Human-readable current activity, e.g. 'Sending probe PI-001'",
+          "title": "Activity",
+          "type": "string"
+        },
+        "task_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Task Id"
+        }
+      },
+      "required": [
+        "status",
+        "activity"
+      ],
+      "title": "AgentStatusPayload",
+      "type": "object"
+    },
+    "TaskAssignedPayload": {
+      "properties": {
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "to_agent": {
+          "enum": [
+            "commander",
+            "injection",
+            "leakage",
+            "hierarchy",
+            "tools"
+          ],
+          "title": "To Agent",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "assess",
+            "validate"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "probe_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Probe Ids",
+          "type": "array"
+        },
+        "reason": {
+          "default": "",
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "to_agent",
+        "kind",
+        "title",
+        "probe_ids"
+      ],
+      "title": "TaskAssignedPayload",
+      "type": "object"
+    },
+    "TaskCompletedPayload": {
+      "properties": {
+        "task_id": {
+          "title": "Task Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "assess",
+            "validate"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "outcome": {
+          "enum": [
+            "completed",
+            "failed",
+            "cancelled",
+            "skipped"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "detail": {
+          "default": "",
+          "title": "Detail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "kind",
+        "outcome"
+      ],
+      "title": "TaskCompletedPayload",
+      "type": "object"
+    },
+    "CapabilityPayload": {
+      "properties": {
+        "assistant_detected": {
+          "title": "Assistant Detected",
+          "type": "boolean"
+        },
+        "chat_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Chat Url"
+        },
+        "tools": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Tools",
+          "type": "array"
+        },
+        "selectors": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "title": "Selectors",
+          "type": "object"
+        },
+        "raw_response": {
+          "default": "",
+          "title": "Raw Response",
+          "type": "string"
+        }
+      },
+      "required": [
+        "assistant_detected"
+      ],
+      "title": "CapabilityPayload",
+      "type": "object"
+    },
+    "PlanPayload": {
+      "properties": {
+        "assignments": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "description": "agent_id -> probe ids",
+          "title": "Assignments",
+          "type": "object"
+        },
+        "skipped": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "probe_id -> reason",
+          "title": "Skipped",
+          "type": "object"
+        }
+      },
+      "required": [
+        "assignments"
+      ],
+      "title": "PlanPayload",
+      "type": "object"
+    },
+    "BrowserNavigatedPayload": {
+      "properties": {
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "title": {
+          "default": "",
+          "title": "Title",
+          "type": "string"
+        },
+        "context_id": {
+          "description": "Isolated BrowserContext id; changes on fresh-context replays",
+          "title": "Context Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "context_id"
+      ],
+      "title": "BrowserNavigatedPayload",
+      "type": "object"
+    },
+    "BrowserActionPayload": {
+      "properties": {
+        "action": {
+          "enum": [
+            "click",
+            "fill",
+            "press",
+            "wait",
+            "read"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "selector": {
+          "title": "Selector",
+          "type": "string"
+        },
+        "value_preview": {
+          "default": "",
+          "title": "Value Preview",
+          "type": "string"
+        }
+      },
+      "required": [
+        "action",
+        "selector"
+      ],
+      "title": "BrowserActionPayload",
+      "type": "object"
+    },
+    "BrowserBlockedPayload": {
+      "properties": {
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "reason"
+      ],
+      "title": "BrowserBlockedPayload",
+      "type": "object"
+    },
+    "TestStartedPayload": {
+      "properties": {
+        "probe_id": {
+          "title": "Probe Id",
+          "type": "string"
+        },
+        "probe_name": {
+          "title": "Probe Name",
+          "type": "string"
+        },
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "prompt": {
+          "title": "Prompt",
+          "type": "string"
+        },
+        "attempt": {
+          "default": 1,
+          "title": "Attempt",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "probe_id",
+        "probe_name",
+        "category",
+        "prompt"
+      ],
+      "title": "TestStartedPayload",
+      "type": "object"
+    },
+    "TestResponsePayload": {
+      "properties": {
+        "probe_id": {
+          "title": "Probe Id",
+          "type": "string"
+        },
+        "response": {
+          "title": "Response",
+          "type": "string"
+        },
+        "latency_ms": {
+          "title": "Latency Ms",
+          "type": "integer"
+        },
+        "attempt": {
+          "default": 1,
+          "title": "Attempt",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "probe_id",
+        "response",
+        "latency_ms"
+      ],
+      "title": "TestResponsePayload",
+      "type": "object"
+    },
+    "Verdict": {
+      "enum": [
+        "vulnerable",
+        "not_observed",
+        "inconclusive",
+        "error"
+      ],
+      "title": "Verdict",
+      "type": "string"
+    },
+    "TestVerdictPayload": {
+      "properties": {
+        "probe_id": {
+          "title": "Probe Id",
+          "type": "string"
+        },
+        "verdict": {
+          "$ref": "#/$defs/Verdict"
+        },
+        "rationale": {
+          "title": "Rationale",
+          "type": "string"
+        },
+        "attempt": {
+          "default": 1,
+          "title": "Attempt",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "probe_id",
+        "verdict",
+        "rationale"
+      ],
+      "title": "TestVerdictPayload",
+      "type": "object"
+    },
+    "Evidence": {
+      "properties": {
+        "kind": {
+          "enum": [
+            "response_excerpt",
+            "canary",
+            "oracle",
+            "screenshot"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        },
+        "artifact": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Relative artifact path, fetch via /api/missions/{id}/artifacts/{name}",
+          "title": "Artifact"
+        }
+      },
+      "required": [
+        "kind",
+        "detail"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "FindingStatus": {
+      "enum": [
+        "candidate",
+        "confirmed",
+        "inconclusive"
+      ],
+      "title": "FindingStatus",
+      "type": "string"
+    },
+    "FindingPayload": {
+      "properties": {
+        "finding_id": {
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "probe_id": {
+          "title": "Probe Id",
+          "type": "string"
+        },
+        "category": {
+          "title": "Category",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/FindingStatus"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "attempts": {
+          "default": 1,
+          "title": "Attempts",
+          "type": "integer"
+        },
+        "reproductions": {
+          "default": 0,
+          "title": "Reproductions",
+          "type": "integer"
+        },
+        "prompt": {
+          "default": "",
+          "title": "Prompt",
+          "type": "string"
+        }
+      },
+      "required": [
+        "finding_id",
+        "probe_id",
+        "category",
+        "title",
+        "severity",
+        "status",
+        "evidence"
+      ],
+      "title": "FindingPayload",
+      "type": "object"
+    },
+    "LogPayload": {
+      "properties": {
+        "level": {
+          "enum": [
+            "debug",
+            "info",
+            "warning",
+            "error"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "level",
+        "message"
+      ],
+      "title": "LogPayload",
+      "type": "object"
+    }
+  }
+}

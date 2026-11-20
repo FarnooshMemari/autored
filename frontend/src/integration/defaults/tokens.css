@@ -1,0 +1,14 @@
+/* Placeholder tokens only; the design team owns the real palette. */
+:root {
+  --autored-agent-commander: #666;
+  --autored-agent-injection: #c0392b;
+  --autored-agent-leakage: #2471a3;
+  --autored-agent-hierarchy: #7d3c98;
+  --autored-agent-tools: #b9770e;
+}
+body { font-family: system-ui, sans-serif; margin: 16px; }
+.slot { border: 2px solid #ccc; padding: 8px; margin: 4px 0; }
+.slot[aria-selected="true"] { outline: 2px dashed currentColor; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px; }
+.timeline { max-height: 320px; overflow: auto; font-size: 12px; }
+.browser[data-expanded="true"] { grid-column: 1 / -1; }

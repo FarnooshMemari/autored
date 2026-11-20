@@ -1,0 +1,187 @@
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import secrets
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+
+from ..browser.chat import ChatSession
+from ..browser.runtime import AgentBrowser
+from ..events.schema import (AgentStatus, AgentStatusPayload, Evidence, FindingPayload, FindingStatus,
+                             LogPayload, TaskCompletedPayload, TestResponsePayload, TestStartedPayload,
+                             TestVerdictPayload, Verdict)
+from ..missions.context import MissionContext
+from .probes import Evaluation, Probe, evaluate
+
+SPECIALIST_NAMES = {
+    "injection": "Prompt Injection",
+    "leakage": "Data Leakage",
+    "hierarchy": "Instruction Hierarchy",
+    "tools": "Tool Permission Boundaries",
+}
+
+
+@dataclass
+class TaskRecord:
+    task_id: str
+    kind: str
+    probe_ids: list[str]
+    started_at: datetime
+    ended_at: datetime | None = None
+    outcome: str | None = None
+
+
+@dataclass
+class AgentRuntimeState:
+    status: AgentStatus = AgentStatus.idle
+    activity: str = ""
+    current_task: str | None = None
+    history: list[TaskRecord] = field(default_factory=list)
+
+
+class Agent:
+    """Base: own state, own isolated browser, own test account."""
+
+    def __init__(self, agent_id: str, ctx: MissionContext):
+        self.id, self.ctx = agent_id, ctx
+        self.state = AgentRuntimeState()
+        self.account = ctx.target.accounts[agent_id]
+        self.browser = AgentBrowser(ctx.runtime, ctx.frames, ctx.mission_id, agent_id,
+                                    ctx.target.guard(), self.emit)
+        self.chat = ChatSession(self.browser, ctx.target)
+
+    def emit(self, type_: str, payload) -> None:
+        self.ctx.emit(self.id, type_, payload)
+
+    def set_status(self, status: AgentStatus, activity: str) -> None:
+        self.state.status, self.state.activity = status, activity
+        self.emit("agent.status", AgentStatusPayload(status=status, activity=activity, task_id=self.state.current_task))
+
+    def log(self, level: str, msg: str) -> None:
+        self.emit("log", LogPayload(level=level, message=msg))
+
+    async def start_session(self, fresh: bool = False) -> None:
+        self.set_status(AgentStatus.starting, "Opening isolated browser context")
+        if fresh or self.browser.context is None:
+            await (self.browser.reset() if self.browser.context else self.browser.open())
+        self.set_status(AgentStatus.authenticating, f"Signing in as test account {self.account.username}")
+        await self.chat.login(self.account, self.ctx.target.login)
+        self.set_status(AgentStatus.navigating, "Opening assistant chat")
+        await self.chat.open()
+        if self.ctx.chat_selectors is not None:   # discovered once by the Commander
+            self.chat.selectors = self.ctx.chat_selectors
+
+    async def shutdown(self, status: AgentStatus = AgentStatus.done, activity: str = "Finished") -> None:
+        # Report first: if cleanup is interrupted (e.g. a second cancel), the UI
+        # must still reflect the real terminal state.
+        self.state.current_task = None
+        self.set_status(status, activity)
+        await self.browser.close()
+
+    def _begin(self, task_id: str, kind: str, probe_ids: list[str]) -> TaskRecord:
+        rec = TaskRecord(task_id, kind, probe_ids, datetime.now(timezone.utc))
+        self.state.history.append(rec)
+        self.state.current_task = task_id
+        return rec
+
+    def _end(self, rec: TaskRecord, outcome: str, detail: str = "") -> None:
+        rec.ended_at, rec.outcome = datetime.now(timezone.utc), outcome
+        self.emit("task.completed", TaskCompletedPayload(task_id=rec.task_id, kind=rec.kind, outcome=outcome, detail=detail))
+        self.state.current_task = None
+
+
+class SpecialistAgent(Agent):
+    def __init__(self, agent_id: str, ctx: MissionContext):
+        super().__init__(agent_id, ctx)
+        self.name = SPECIALIST_NAMES[agent_id]
+
+    async def _oracle(self) -> list[dict] | None:
+        path = self.ctx.target.oracle_audit_path
+        return await self.chat.fetch_json(path) if path else None
+
+    async def run_probe(self, probe: Probe, attempt: int = 1) -> tuple[Evaluation, str]:
+        lim = self.ctx.target.limits
+        nonce = secrets.token_hex(3)
+        prompt = probe.render(nonce, self.account)
+        lock = self.ctx.shared_state_lock(probe.shared_state) if probe.shared_state else contextlib.nullcontext()
+        if probe.shared_state and lock.locked():
+            self.set_status(AgentStatus.waiting, f"Waiting for shared resource '{probe.shared_state}'")
+        async with lock:
+            before = await self._oracle() if probe.oracle else None
+            await self.ctx.limiter.acquire()
+            self.set_status(AgentStatus.validating if attempt > 1 else AgentStatus.testing, f"{probe.id}: {probe.name}")
+            self.emit("test.started", TestStartedPayload(probe_id=probe.id, probe_name=probe.name,
+                                                         category=probe.agent, prompt=prompt, attempt=attempt))
+            reply, ms = await asyncio.wait_for(self.chat.send(prompt, lim.probe_timeout_s), lim.probe_timeout_s + 5)
+            self.emit("test.response", TestResponsePayload(probe_id=probe.id, response=reply, latency_ms=ms, attempt=attempt))
+            new_records = None
+            if probe.oracle:
+                after = await self._oracle()
+                if before is not None and after is not None:
+                    new_records = after[len(before):]
+        ev = evaluate(probe, prompt, reply, self.ctx.target, new_records)
+        self.emit("test.verdict", TestVerdictPayload(probe_id=probe.id, verdict=ev.verdict, rationale=ev.rationale, attempt=attempt))
+        return ev, prompt
+
+    async def assess(self, task_id: str, probes: list[Probe]) -> list[tuple[Probe, FindingPayload]]:
+        rec = self._begin(task_id, "assess", [p.id for p in probes])
+        candidates: list[tuple[Probe, FindingPayload]] = []
+        try:
+            await self.start_session()
+            for probe in probes:
+                try:
+                    ev, prompt = await self.run_probe(probe)
+                except asyncio.TimeoutError:
+                    self.emit("test.verdict", TestVerdictPayload(probe_id=probe.id, verdict=Verdict.error, rationale="timed out"))
+                    continue
+                if ev.verdict in (Verdict.vulnerable, Verdict.inconclusive):
+                    fid = f"F-{uuid.uuid4().hex[:8]}"
+                    shot = await self.browser.screenshot(self.ctx.artifacts_dir / f"{fid}.png")
+                    f = FindingPayload(
+                        finding_id=fid, probe_id=probe.id, category=probe.agent, title=probe.title,
+                        severity=probe.severity, status=FindingStatus.candidate, prompt=prompt,
+                        evidence=[*ev.evidence, Evidence(kind="screenshot", detail="Browser at time of response", artifact=shot.name)],
+                        attempts=1, reproductions=1 if ev.verdict == Verdict.vulnerable else 0)
+                    self.emit("finding.candidate", f)
+                    candidates.append((probe, f))
+            self._end(rec, "completed", f"{len(probes)} probes, {len(candidates)} candidate(s)")
+            return candidates
+        except asyncio.CancelledError:
+            self._end(rec, "cancelled")
+            raise
+        except Exception as e:
+            self._end(rec, "failed", str(e))
+            raise
+
+    async def validate(self, task_id: str, probe: Probe, finding: FindingPayload) -> FindingPayload:
+        """Replay in fresh isolated contexts; confirm only on repeated strong evidence."""
+        rec = self._begin(task_id, "validate", [probe.id])
+        lim = self.ctx.target.limits
+        successes, attempts, evidence = 0, 0, list(finding.evidence)
+        try:
+            for i in range(lim.validation_attempts):
+                await self.start_session(fresh=True)
+                self.set_status(AgentStatus.validating, f"Replaying {probe.id} ({i + 1}/{lim.validation_attempts}) in fresh context")
+                attempts += 1
+                try:
+                    ev, _ = await self.run_probe(probe, attempt=i + 2)
+                except asyncio.TimeoutError:
+                    continue
+                if ev.verdict == Verdict.vulnerable:
+                    successes += 1
+                    evidence += [e for e in ev.evidence if e.kind in ("canary", "oracle")][:1]
+            status = FindingStatus.confirmed if successes >= lim.validation_required else FindingStatus.inconclusive
+            updated = finding.model_copy(update={
+                "status": status, "attempts": finding.attempts + attempts,
+                "reproductions": finding.reproductions + successes, "evidence": evidence})
+            self.emit("finding.updated", updated)
+            self._end(rec, "completed", f"{status.value}: reproduced {successes}/{attempts}")
+            return updated
+        except asyncio.CancelledError:
+            self._end(rec, "cancelled")
+            raise
+        except Exception as e:
+            self._end(rec, "failed", str(e))
+            raise
