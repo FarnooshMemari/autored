@@ -92,7 +92,8 @@ a determinism check.
 
 ## 6. Commit hashes
 - `e99c29f` — M4 adaptive Commander + M5 durable storage/reporting (CI green).
-- (final overnight commit hash appended below after the experiment write-up.)
+- `f06e009` — repeated-trials variance, Phase-2 assessment, this report (CI green).
+- Both pushed to `main`; CI (backend 46 + frontend 6) green on each.
 
 ## 7. Remaining problems / limitations
 - **Confirmation needs owner-instrumented ground truth** (seeded canaries + audit
