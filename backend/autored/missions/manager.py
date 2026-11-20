@@ -73,9 +73,9 @@ class MissionManager:
         bad = [a for a in (agents or []) if a not in SPECIALIST_IDS]
         if bad:
             raise MissionRejected(f"unknown agents: {bad}")
-        if mode not in ("assess", "connectivity", "adaptive"):
+        if mode not in ("assess", "connectivity", "adaptive", "hybrid"):
             raise MissionRejected(f"unknown mode: {mode}")
-        if mode in ("assess", "adaptive") and not target.allows("security_probes"):
+        if mode in ("assess", "adaptive", "hybrid") and not target.allows("security_probes"):
             raise MissionRejected(
                 f"target '{target_id}' authorizes {target.authorized_methods}; security probes are not "
                 "permitted. Run mode='connectivity' (discovery + one benign message) instead.")
@@ -98,12 +98,13 @@ class MissionManager:
         return m
 
     async def _run(self, m: Mission, agents: list[str] | None) -> None:
-        if m.ctx.mode == "adaptive":
+        if m.ctx.mode in ("adaptive", "hybrid"):
             from ..agents.adaptive import AdaptiveBudget, AdaptiveCommander
             from ..agents.llm import LLMClient, LLMConfig
             b = AdaptiveBudget(**(m.ctx.target.adaptive_budget or {}))
             cfg = LLMConfig(model=m.ctx.target.planner_model) if m.ctx.target.planner_model else LLMConfig()
-            commander = AdaptiveCommander(m.ctx, agents, llm=LLMClient(cfg, max_calls=b.max_llm_calls), budget=b)
+            commander = AdaptiveCommander(m.ctx, agents, llm=LLMClient(cfg, max_calls=b.max_llm_calls),
+                                          budget=b, hybrid=(m.ctx.mode == "hybrid"))
         else:
             commander = Commander(m.ctx, agents)
         inner = asyncio.create_task(commander.run())

@@ -84,3 +84,29 @@ async def test_adaptive_mode_requires_authorization(hardened_target, scopes_for,
             mgr.create("acmehelp-local", "pytest", True, mode="adaptive")
     finally:
         await rt.close()
+
+
+@pytest.mark.e2e
+@requires_browser
+async def test_hybrid_runs_fixed_then_adaptive(vulnerable_target, scopes_for, tmp_path):
+    """Hybrid = fixed suite (confirms the known findings) + adaptive follow-ups."""
+    from autored.missions.context import MissionContext
+    from autored.missions.snapshot import MissionSnapshot
+    from autored.events.bus import MissionEventLog
+    from autored.safety.limits import RateLimiter
+    scopes = scopes_for(vulnerable_target.url)
+    rt = BrowserRuntime(headless=True)
+    try:
+        t = scopes.list()[0]
+        mid = "M-hybrid"
+        ctx = MissionContext(mission_id=mid, target=t, runtime=rt, frames=FrameHub(),
+                             log=MissionEventLog(mid, tmp_path / mid), snapshot=MissionSnapshot.new(mid, t.id, "pytest"),
+                             limiter=RateLimiter(50, 10), artifacts_dir=tmp_path / mid / "artifacts", mode="hybrid")
+        cmd = AdaptiveCommander(ctx, llm=FakeLLM(), budget=AdaptiveBudget(max_rounds=1, max_probes=3, max_llm_calls=3), hybrid=True)
+        await asyncio.wait_for(cmd.run(), 180)
+        confirmed = {f.probe_id for f in ctx.snapshot.findings.values() if f.status.value == "confirmed"}
+        # the fixed phase alone confirms the canary/oracle findings on the vulnerable target
+        assert {"PI-001", "TP-001"} <= confirmed, confirmed
+        assert cmd._seeded and len(cmd.observations) > 0   # fixed results seeded the planner
+    finally:
+        await rt.close()

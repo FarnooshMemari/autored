@@ -20,6 +20,7 @@ def main() -> int:
     r.add_argument("--i-am-authorized", action="store_true", help="Confirm written authorization for this target")
     r.add_argument("--agents", nargs="*")
     r.add_argument("--adaptive", action="store_true", help="Use the LLM-powered adaptive Commander")
+    r.add_argument("--hybrid", action="store_true", help="Fixed suite first, then adaptive follow-ups")
     c = sub.add_parser("connectivity-check", help="Phase-0: discover + one benign message, NO security probes")
     c.add_argument("target_id")
     c.add_argument("--operator", required=True)
@@ -70,7 +71,9 @@ def main() -> int:
         rt = BrowserRuntime(headless=s.headless)
         from .storage.store import MissionStore
         mgr = MissionManager(ScopeRegistry.load(s.scope_path), rt, FrameHub(), s.runs_dir, store=MissionStore(s.db_path))
-        mode = "connectivity" if a.cmd == "connectivity-check" else ("adaptive" if getattr(a, "adaptive", False) else "assess")
+        mode = ("connectivity" if a.cmd == "connectivity-check"
+                else "hybrid" if getattr(a, "hybrid", False)
+                else "adaptive" if getattr(a, "adaptive", False) else "assess")
         agents = getattr(a, "agents", None)
         m = mgr.create(a.target_id, a.operator, a.i_am_authorized, agents, mode=mode)
         async for e in m.ctx.log.subscribe():

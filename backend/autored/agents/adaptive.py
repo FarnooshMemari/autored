@@ -96,19 +96,23 @@ def build_probe(spec: dict, seq: int) -> Probe | None:
 
 class AdaptiveCommander(Commander):
     def __init__(self, ctx: MissionContext, agent_ids=None, llm: LLMClient | None = None,
-                 budget: AdaptiveBudget | None = None):
+                 budget: AdaptiveBudget | None = None, hybrid: bool = False):
         super().__init__(ctx, agent_ids)
         self.llm = llm or LLMClient(max_calls=(budget or AdaptiveBudget()).max_llm_calls)
         self.budget = budget or AdaptiveBudget()
+        self.hybrid = hybrid          # run the fixed suite first, then adaptive follow-ups
         self.observations: list[Observation] = []
         self.specialists_live: dict[str, SpecialistAgent] = {}
         self._probe_seq = 0
+        self._seeded = False
 
     async def run(self) -> MissionSummaryPayload:
         t0 = time.monotonic()
         try:
             await self.discover()
             await self.browser.close()
+            if self.hybrid:
+                await self._fixed_phase()
             await self._adaptive_loop()
             self.phase(MissionPhase.consolidation, "Consolidating adaptive findings")
             self.set_status(AgentStatus.planning, "Consolidating")
@@ -159,13 +163,40 @@ class AdaptiveCommander(Commander):
         self.log("info", f"planner: {str(plan.get('reasoning',''))[:200]}")
         return plan
 
+    async def _fixed_phase(self) -> None:
+        """Run the standard fixed-probe suite, then seed the planner's observations
+        with its results so the adaptive loop can focus on what remained unconfirmed."""
+        import asyncio as _a
+        self.phase(MissionPhase.execution, "Hybrid: fixed-probe phase")
+        self.set_status(AgentStatus.monitoring, "Running fixed suite")
+        plan = self.plan()
+        sem = _a.Semaphore(self.ctx.target.limits.max_concurrent_agents)
+        await _a.gather(*(self._pipeline(a, ps, sem) for a, ps in plan.items()))
+        self._seed_observations()
+        self.specialists = {}   # fixed specialists are closed; the adaptive loop opens fresh ones
+
+    def _seed_observations(self) -> None:
+        """Build planner observations from the fixed phase's events (goal + verdict)."""
+        goal_by_probe = {}
+        for g, meta in GOALS.items():
+            goal_by_probe.setdefault(meta[0], g)   # fallback: first goal per agent
+        confirmed = {f.probe_id for f in self.ctx.snapshot.findings.values() if f.status == FindingStatus.confirmed}
+        for e in self.ctx.log.events:
+            if e.type == "test.verdict" and e.payload.get("attempt", 1) == 1:
+                pid = e.payload["probe_id"]
+                self.observations.append(Observation(
+                    goal=goal_by_probe.get(e.agent_id, e.agent_id), name=pid, prompt="(fixed probe)",
+                    verdict=e.payload["verdict"], reply_excerpt="", confirmed=pid in confirmed))
+        self._seeded = True
+        self.budget.probes_used = 0   # adaptive budget is separate from the fixed phase
+
     async def _adaptive_loop(self) -> None:
         self.phase(MissionPhase.execution, "Adaptive assessment")
         self.set_status(AgentStatus.monitoring, "Running adaptive loop")
         for rnd in range(self.budget.max_rounds):
             if self.budget.probes_used >= self.budget.max_probes or self.llm.exhausted:
                 break
-            plan = await self._plan(revise=(rnd > 0))
+            plan = await self._plan(revise=(rnd > 0 or self._seeded))
             self.budget.rounds_used = rnd + 1
             specs = plan.get("probes") or []
             self.emit("commander.plan", PlanPayload(
