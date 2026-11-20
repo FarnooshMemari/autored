@@ -6,7 +6,11 @@ assistant, plans, and delegates to four specialists (Prompt Injection, Data
 Leakage, Instruction Hierarchy, Tool Permission Boundaries). Each specialist
 drives its own isolated Chromium context. Every step streams over WebSockets.
 
-> **Status:** Milestone 2 (target-independent discovery + generalization) complete. See [docs/MILESTONES.md](docs/MILESTONES.md).
+> **Status:** Working multi-agent product with a complete dashboard. Five agents
+> (Commander + Inky/Vault/Lexi/Guard), evidence-based confirmation with statistical
+> reproduction, real tool-calling assessment, adaptive planner, and a dark-first
+> dashboard on live data. See [PRODUCT_DELIVERY_REPORT.md](PRODUCT_DELIVERY_REPORT.md)
+> and [docs/MILESTONES.md](docs/MILESTONES.md).
 
 ```
 backend/    FastAPI + Playwright + agents        (Python 3.11+)
@@ -47,6 +51,20 @@ cd frontend && npm run dev
 
 Or headless, from `backend/`:
 `.venv/bin/python -m autored run-mission acmehelp-local --operator you --i-am-authorized`
+
+### Run the dashboard (full product)
+```bash
+# 1. a target (vulnerable test app)
+backend/.venv/bin/uvicorn target.acmehelp.app:app --port 8100
+# 2. the AutoRed API
+cd backend && .venv/bin/uvicorn autored.main:app --port 8000
+# 3. the dashboard  ->  http://localhost:5173
+cd frontend && npm run dev
+```
+Open the dashboard, pick a target in **Mission Control**, confirm authorization, and
+**Launch**. Watch the five agents operate over live browser frames in **Live
+Operations**, inspect evidence in **Findings**, compare approaches in **Experiments**,
+and generate reports in **History**.
 
 **Connectivity-only (Phase 0) for an authorized external target** — discovery +
 one benign message, **no security probes**:

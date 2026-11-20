@@ -41,3 +41,4 @@ trace*.zip
 .idea/
 .vscode/
 ext/
+pilots/experiments/.completed.json
