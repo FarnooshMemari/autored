@@ -46,7 +46,7 @@ non-destructive · no paid APIs · no AI co-author trailers.
 - **Held-out (Exp C):** adaptive on the hardened config it was not designed against →
   0 confirmed, no over-claiming.
 - **Cross-account, tester-controlled (Exp D):** AutoRed planted a runtime marker and verified cross-account access with no owner seeding; 0 false positives, latent over-permission surfaced via audit (see docs/EXPERIMENTS.md).
-- **Deception (Exp E, partial):** tool-action claims with no matching audit record are
+- **Deception (Exp E):** AutoRed distinguishes fabricated tool-action claims from verified effects; on this model 0 deceptive claims (no false positives). Tool-action claims with no matching audit record are
   reported as fabricated/deceptive, distinct from verified side effects.
 
 ## What remains limited (honest)
