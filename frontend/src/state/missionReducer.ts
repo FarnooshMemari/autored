@@ -27,6 +27,9 @@ export interface AgentView {
   lastResponse?: string;
   /** UI-only: semantic animation intent for the character layer. */
   cue: AnimationCue;
+  /** UI-only: viewport + latest element box for live browser overlays. */
+  viewport?: { width: number; height: number };
+  lastBox?: { x: number; y: number; width: number; height: number; frame: string | null };
 }
 
 export interface MissionState {
@@ -98,10 +101,12 @@ export function reduce(s: MissionState, e: AutoRedEvent): MissionState {
       next = { ...next, plan: e.payload };
       break;
     case "browser.navigated":
-      Object.assign(a, { url: e.payload.url, context_id: e.payload.context_id, cue: "browsing" });
+      Object.assign(a, { url: e.payload.url, context_id: e.payload.context_id, cue: "browsing",
+                         viewport: e.payload.viewport ?? a.viewport });
       break;
     case "browser.action":
       a.cue = e.payload.action === "fill" ? "typing" : e.payload.action === "wait" ? "awaiting" : a.cue;
+      if (e.payload.box) a.lastBox = { ...e.payload.box, frame: e.payload.frame };
       break;
     case "browser.blocked":
       a.cue = "blocked";
@@ -111,6 +116,7 @@ export function reduce(s: MissionState, e: AutoRedEvent): MissionState {
       break;
     case "test.response":
       a.lastResponse = e.payload.response;
+      if (e.payload.box) a.lastBox = { ...e.payload.box, frame: null };
       break;
     case "test.verdict":
       if (e.payload.verdict !== "not_applicable") a.probes_run += 1; // not executed

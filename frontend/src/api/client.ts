@@ -18,9 +18,13 @@ export class AutoRedClient {
     return r.json();
   }
 
+  health = () => this.req<any>("/api/health");
   agents = () => this.req<AgentInfo[]>("/api/agents");
   targets = () => this.req<TargetInfo[]>("/api/targets");
+  missions = () => this.req<any[]>("/api/missions");
   mission = (id: string) => this.req<any>(`/api/missions/${id}`);
+  missionReport = (id: string) => this.req<any>(`/api/missions/${id}/report`);
+  experiments = () => this.req<Record<string, any>>("/api/experiments");
   findings = (id: string) => this.req<FindingPayload[]>(`/api/missions/${id}/findings`);
   createMission = (body: { target_id: string; operator: string; authorization_acknowledged: boolean; agents?: string[] }) =>
     this.req<any>("/api/missions", { method: "POST", body: JSON.stringify(body) });

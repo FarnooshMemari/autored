@@ -20,8 +20,8 @@ describe("missionReducer parity with backend snapshot", () => {
 
   it("matches every agent's state and task history", () => {
     for (const id of ALL_AGENT_IDS) {
-      const { cue, lastPrompt, lastResponse, ...core } = s.agents[id];
-      void cue; void lastPrompt; void lastResponse;
+      const { cue, lastPrompt, lastResponse, viewport, lastBox, ...core } = s.agents[id];
+      void cue; void lastPrompt; void lastResponse; void viewport; void lastBox;
       expect(core).toEqual((expected.agents as any)[id]);
     }
   });

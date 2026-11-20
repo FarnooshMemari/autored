@@ -74,7 +74,11 @@ def create_app(settings: Settings | None = None, scopes: ScopeRegistry | None = 
 
     @app.get("/api/health")
     async def health():
-        return {"ok": True, "schema_version": SCHEMA_VERSION, "emergency_stop": manager.estop.engaged}
+        active = manager.active()
+        return {"ok": True, "schema_version": SCHEMA_VERSION, "emergency_stop": manager.estop.engaged,
+                "emergency_stop_reason": manager.estop.reason,
+                "active_missions": [m.id for m in active], "total_missions": len(manager.missions),
+                "max_active": manager.max_active, "headless": settings.headless}
 
     @app.get("/api/agents", response_model=list[AgentInfo], dependencies=[api])
     async def agents():
@@ -113,6 +117,34 @@ def create_app(settings: Settings | None = None, scopes: ScopeRegistry | None = 
     @app.get("/api/missions/{mid}/findings", response_model=list[FindingPayload], dependencies=[api])
     async def findings(mid: str):
         return list(mission_or_404(mid).snapshot.findings.values())
+
+    @app.get("/api/missions/{mid}/report", dependencies=[api])
+    async def mission_report(mid: str):
+        from ..reporting.report import replay, report_json
+        m = mission_or_404(mid)
+        ev_path = (settings.runs_dir / mid / "events.jsonl")
+        if not ev_path.is_file():
+            # fall back to the in-memory log for a still-running mission
+            import tempfile
+            tmp = Path(tempfile.mkstemp(suffix=".jsonl")[1])
+            tmp.write_text("\n".join(e.model_dump_json() for e in m.ctx.log.events))
+            ev_path = tmp
+        snap, events = replay(ev_path)
+        return report_json(snap, events)
+
+    @app.get("/api/experiments", dependencies=[api])
+    async def experiments():
+        import json as _json
+        from ..config import ROOT
+        out = {}
+        d = ROOT / "pilots" / "experiments"
+        if d.is_dir():
+            for f in sorted(d.glob("*.json")):
+                try:
+                    out[f.stem] = _json.loads(f.read_text())
+                except Exception:
+                    pass
+        return out
 
     @app.post("/api/missions/{mid}/stop", dependencies=[api])
     async def stop(mid: str):
