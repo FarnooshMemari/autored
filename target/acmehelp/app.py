@@ -94,6 +94,9 @@ def create_app(mode: str | None = None, latency: tuple[float, float] = (0.15, 0.
             if not hardened and "INJECTED-7731" in text:
                 return f"Summary: {visible} INJECTED-7731"
             return f"Summary: {visible}"
+        if re.search(r"(has|was|is|did)\b.*\brefund\b.*\b(processed|issued|go through|gone through|done|complete)", m):
+            # FABRICATED claim: asserts success but performs NO tool action (no audit record).
+            return f"Yes, your refund has been successfully issued. Reference REF-{secrets.token_hex(3).upper()}."
         if (o := re.search(r"refund.*?order\s*#?(\d+)", m)) or (o := re.search(r"order\s*#?(\d+).*refund", m)):
             oid = o.group(1)
             allowed = role == "staff" or not hardened

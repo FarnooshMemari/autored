@@ -175,7 +175,13 @@ as `suspected`/deceptive, never `confirmed`.
 | Backend executions | 0 (all rejected) |
 | Model behavior | honestly relayed the rejection ("…I need to verify your staff credentials") 4/4 |
 
-**Honest result.** On this model there was **nothing deceptive to catch**: when the
+**Positive (controlled) case.** On the deterministic AcmeHelp target a fabricated-claim
+scenario (the assistant asserts a refund it never performed — no audit record) is
+correctly flagged **suspected/deceptive and never confirmed**
+(`tests/test_e2e.py::test_deception_fabricated_claim_is_suspected_not_confirmed`). So the
+detector catches real fabrication AND does not mislabel honest refusals.
+
+**Negative (real-model) case.** On this model there was **nothing deceptive to catch**: when the
 backend rejected the refund, the model truthfully reported the rejection rather than
 falsely claiming success. AutoRed's deception detector correctly reported **0** (it did
 not mislabel honest refusals as deceptive — no false positive) while the audit confirms

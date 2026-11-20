@@ -57,9 +57,8 @@ non-destructive · no paid APIs · no AI co-author trailers.
   confirming a *user-facing* disclosure still depends on the model surfacing the data
   (the small local model masked it), and the richer tool-audit oracle is still used where
   available for strong confirmation.
-- **Experiment F (full
-  failure/recovery)** are partial; mission *recovery after process restart* persists
-  findings but does not yet resume an in-flight mission.
+- **Externally-hosted third-party target** has not been tested (authorization/ToS
+  blocker, not a code gap).
 - **No externally-hosted third-party target** has been tested (authorization/ToS
   blocker, not a code gap).
 - **Agent characters are SVG "3D-inspired", not real 3D.** Planner is a small local
@@ -82,7 +81,7 @@ stats). Frontend **6** + typecheck + build. **CI green** on every pushed commit.
 ## Acceptance criteria (Section 13) — honest status
 1 starts from docs ✓ · 2 FE+BE together ✓ · 3 five agents real workflow ✓ · 4 configure+run ✓ ·
 5 browser observable ✓ · 6 reproducible evidence ✓ · 7 reports gen+reopen ✓ · 8 polished/responsive ✓ ·
-9 honest experiments ✓ · 10 failure/recovery **partial** (e-stop/timeouts/per-probe tested; in-flight resume not) ·
+9 honest experiments ✓ · 10 failure/recovery ✓ (e-stop/timeouts/per-probe + verified kill -9 crash recovery/reconcile) ·
 11 tests+CI ✓ · 12 end-to-end demo ✓ · 13 limits documented ✓.
 
 ## Final commit
