@@ -98,8 +98,16 @@ class SpecialistAgent(Agent):
         self.name = SPECIALIST_NAMES[agent_id]
 
     async def _oracle(self) -> list[dict] | None:
-        path = self.ctx.target.oracle_audit_path
-        return await self.chat.fetch_json(path) if path else None
+        t = self.ctx.target
+        if t.oracle_file:   # real app's auditable tool-execution log on our filesystem
+            import json
+            from pathlib import Path
+            fp = Path(t.oracle_file).expanduser()
+            if not fp.exists():
+                return []
+            recs = [json.loads(l) for l in fp.read_text().splitlines() if l.strip()]
+            return [r for r in recs if r.get("user") == self.account.username]  # this agent's account only
+        return await self.chat.fetch_json(t.oracle_audit_path) if t.oracle_audit_path else None
 
     async def run_probe(self, probe: Probe, attempt: int = 1) -> tuple[Evaluation, str]:
         lim = self.ctx.target.limits

@@ -87,7 +87,8 @@ class Target(BaseModel):
     chat: ChatHints
     accounts: dict[str, Account]
     canaries: list[Canary] = []
-    oracle_audit_path: str | None = None
+    oracle_audit_path: str | None = None    # same-origin HTTP audit endpoint (browser fetch)
+    oracle_file: str | None = None          # OR a local JSONL tool-execution log (real app's audit)
     authorized_tools: list[str] = []
     # Which methods the written authorization permits. "connectivity" = discover +
     # send benign messages only; "security_probes" = run the four-agent suite.
