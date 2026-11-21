@@ -36,6 +36,10 @@ export function useMission(client: AutoRedClient, missionId: string | null) {
           s = fromSnapshot(snap);
         }
         if (cancelled) return;
+        // The backend holds the authoritative phase + summary (the event log of an
+        // interrupted mission has no mission.completed, so the replayed phase is stale).
+        s.phase = snap.phase;
+        s.summary = snap.summary ?? s.summary;
         s.live = false;
         dispatch({ kind: "reset", state: s });
         setLoading(false);

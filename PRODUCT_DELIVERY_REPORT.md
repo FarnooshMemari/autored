@@ -93,4 +93,6 @@ See **[VERIFICATION_MATRIX.md](VERIFICATION_MATRIX.md)** for the full capability
 11 tests+CI ✓ · 12 end-to-end demo ✓ · 13 limits documented ✓.
 
 ## Final commit
-Latest pushed commit is at the tip of `main` (CI green). Dashboard: `6204cde`.
+Latest pushed commit is at the tip of `main` (CI green). It includes the P0 persistence/mode
+fixes, interrupted-mission reconciliation (authoritative phase/summary/metadata restored, no
+false LIVE status), and the P1 visual redesign. Test suite: backend 58, frontend 6.

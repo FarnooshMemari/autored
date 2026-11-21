@@ -97,3 +97,44 @@ async def test_mission_reopens_after_restart(app_env):
             shot = next(e["artifact"] for f in findings if f["status"] == "confirmed"
                         for e in f["evidence"] if e["kind"] == "screenshot")
             assert (await c.get(f"/api/missions/{mid}/artifacts/{shot}")).status_code == 200
+
+
+async def test_interrupted_mission_full_recovery(app_env):
+    """Real crash artifact: run a mission to completion, take the event-log PREFIX
+    before mission.completed (exactly what a kill -9 leaves), then boot a fresh
+    backend on that runs dir + db and verify the interrupted state end-to-end."""
+    import shutil
+    app, settings, scopes_for, target = app_env
+    with ServerThread(app, free_port()) as srv:
+        async with httpx.AsyncClient(base_url=srv.url, timeout=180) as c:
+            mid = await _create(c, target_id="acmehelp-local", operator="crash-victim", mode="assess")
+            await _await_done(c, mid)
+
+    full = (settings.runs_dir / mid / "events.jsonl").read_text().splitlines()
+    prefix = [l for l in full if "mission.completed" not in l]
+    assert any("finding.candidate" in l for l in prefix), "need a finding before the crash"
+    assert len(prefix) < len(full)                       # we actually dropped the completion
+
+    crash = settings.runs_dir.parent / "crash_runs"
+    (crash / mid / "artifacts").mkdir(parents=True)
+    (crash / mid / "events.jsonl").write_text("\n".join(prefix))
+    for a in (settings.runs_dir / mid / "artifacts").glob("*.png"):
+        shutil.copy(a, crash / mid / "artifacts" / a.name)
+
+    settings2 = Settings(runs_dir=crash, db_path=crash / "db.sqlite")
+    app2 = create_app(settings2, scopes_for(target.url))
+    with ServerThread(app2, free_port()) as srv2:   # lifespan reconciles interrupted missions on boot
+        assert mid not in app2.state.manager.missions
+        async with httpx.AsyncClient(base_url=srv2.url, timeout=60) as c:
+            snap = (await c.get(f"/api/missions/{mid}")).json()
+            assert snap["phase"] == "interrupted", snap["phase"]        # authoritative, not "execution"
+            assert snap["live"] is False                                 # no false LIVE
+            assert snap["summary"] and snap["summary"]["phase"] == "interrupted"
+            findings = (await c.get(f"/api/missions/{mid}/findings")).json()
+            assert len(findings) >= 1                                     # partial findings preserved
+            events = (await c.get(f"/api/missions/{mid}/events")).json()
+            assert len(events) > 5                                        # activity timeline preserved
+            report = (await c.get(f"/api/missions/{mid}/report")).json()
+            assert report["phase"] == "interrupted" and report["summary"]["phase"] == "interrupted"
+            lst = (await c.get("/api/missions")).json()
+            assert any(m["mission_id"] == mid and m["phase"] == "interrupted" for m in lst)

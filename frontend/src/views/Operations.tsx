@@ -76,7 +76,7 @@ export function Operations({ client, state, agents, onStop }:
     <>
       <Section title="Live Operations" sub={`Mission ${state.mission_id || "—"} · ${state.target_id}`}
         actions={<div className="row" style={{ gap: 10 }}>
-          <Pill color={state.live ? "var(--accent)" : "var(--muted)"}>{state.live ? "● LIVE" : "recorded"} · {state.phase}</Pill>
+          <Pill color={state.live ? "var(--accent)" : state.phase === "interrupted" ? "var(--warn)" : "var(--muted)"}>{(state.live ? "● LIVE" : "RECORDED") + " · " + state.phase.toUpperCase()}</Pill>
           {state.live && <button className="btn sm danger" onClick={onStop}>■ Stop</button>}
         </div>}>
         {/* agent strip */}

@@ -91,9 +91,15 @@ def create_app(settings: Settings | None = None, scopes: ScopeRegistry | None = 
         row = manager.store.get_mission(mid) if manager.store else None
         ev_path = settings.runs_dir / mid / "events.jsonl"
         if ev_path.is_file():
-            snap, _ = replay(ev_path)
+            snap, _ = replay(ev_path)            # rebuilds findings/agents/timeline from the log
             if row:
+                # authoritative metadata from the store row; the log (which for an interrupted
+                # mission has no mission.completed) must NOT override the reconciled phase/summary.
+                from ..events.schema import MissionPhase, MissionSummaryPayload
                 snap.target_id, snap.operator = row["target_id"], row["operator"]
+                snap.phase = MissionPhase(row["phase"])
+                if row["summary"]:
+                    snap.summary = MissionSummaryPayload.model_validate_json(row["summary"])
             return snap, False
         if row:   # store row but no event log: minimal reconstruction from stored findings
             from ..events.schema import FindingPayload, MissionPhase
@@ -178,17 +184,16 @@ def create_app(settings: Settings | None = None, scopes: ScopeRegistry | None = 
 
     @app.get("/api/missions/{mid}/report", dependencies=[api])
     async def mission_report(mid: str):
-        from ..reporting.report import replay, report_json
-        if not re.fullmatch(r"M-[\w-]+", mid):
-            raise HTTPException(400, "bad mission id")
-        ev_path = settings.runs_dir / mid / "events.jsonl"
-        if not ev_path.is_file() and mid in manager.missions:   # still-running mission: snapshot the live log
-            import tempfile
-            ev_path = Path(tempfile.mkstemp(suffix=".jsonl")[1])
-            ev_path.write_text("\n".join(e.model_dump_json() for e in manager.missions[mid].ctx.log.events))
-        if not ev_path.is_file():
-            raise HTTPException(404, "no event log for this mission")
-        snap, events = replay(ev_path)
+        from ..reporting.report import report_json
+        snap, _ = resolve(mid)   # authoritative phase/summary/metadata/findings (incl. interrupted + store-only)
+        events: list[Event] = []
+        m = manager.missions.get(mid)
+        if m is not None:
+            events = m.ctx.log.events
+        else:
+            ev_path = settings.runs_dir / mid / "events.jsonl"
+            if ev_path.is_file():
+                events = [Event.model_validate_json(l) for l in ev_path.read_text().splitlines() if l.strip()]
         return report_json(snap, events)
 
     @app.get("/api/experiments", dependencies=[api])

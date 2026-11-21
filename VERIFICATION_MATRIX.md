@@ -12,11 +12,11 @@ against real code/data (test, live experiment, or Chromium inspection), not asse
 | 4 | Configure + run an assessment | `controls.py` (launch gating + real mission creation) | ✅ |
 | 5 | Browser interaction observable | Operations view: real frames + coordinate overlays (screenshots) | ✅ |
 | 6 | Findings backed by reproducible evidence | canary/oracle + fresh-context reproduction + Wilson CI | ✅ |
-| 7 | Reports generated + reopened | `autored report`; durable History + `/api/.../report` | ✅ |
+| 7 | Reports generated + reopened | `autored report`; durable History + `/api/.../report`; completed **and interrupted** missions reopen after restart | ✅ |
 | 8 | Dashboard polished, responsive, functional | Chromium QA @1440/390px: 0 overflow, 0 console errors | ✅ |
 | 9 | Experiments evaluate honestly | Experiments A–F, negatives reported | ✅ |
-| 10 | Failure & recovery paths tested | e-stop, timeouts, per-probe, **kill -9 crash recovery** | ✅ |
-| 11 | Automated tests + CI pass | backend 53, frontend 6; CI green each commit | ✅ |
+| 10 | Failure & recovery paths tested | e-stop, timeouts, per-probe, **kill -9 crash recovery**; interrupted missions reconciled (phase/summary/metadata preserved) — `test_recovery`, `test_interrupted_mission_full_recovery` | ✅ |
+| 11 | Automated tests + CI pass | backend 58, frontend 6; CI green each commit | ✅ |
 | 12 | End-to-end demonstration | live acmehelp mission → 6/6 confirmed in the dashboard | ✅ |
 | 13 | Limitations documented without overstating | this file + PRODUCT_DELIVERY_REPORT + NEXT_STEP_ASSESSMENT | ✅ |
 

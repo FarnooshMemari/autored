@@ -51,3 +51,20 @@ def test_reconcile_is_idempotent_and_skips_active(tmp_path):
     # a still-active mission must NOT be reconciled
     _write_run(runs, "M-ACTIVE", completed=False)
     assert reconcile_runs(runs, store, active_ids={"M-ACTIVE"}) == []
+
+
+def test_reconcile_preserves_creation_metadata(tmp_path):
+    """A mission saved at creation (real target_id/operator/mode) that then crashes
+    is reconciled to 'interrupted' WITHOUT losing that metadata (write-once fields)."""
+    from autored.missions.snapshot import MissionSnapshot
+    runs = tmp_path / "runs"
+    store = MissionStore(tmp_path / "db.sqlite")
+    # save-at-creation: a 'created' row with authoritative metadata
+    store.save_mission(MissionSnapshot.new("M-META", "owui-tools", "alice"), mode="adaptive")
+    assert store.get_mission("M-META")["phase"] == "created"
+    # ran partially then crashed: a prefix log with a finding, no mission.completed
+    _write_run(runs, "M-META", completed=False)
+    assert reconcile_runs(runs, store) == ["M-META"]
+    m = store.get_mission("M-META")
+    assert m["phase"] == "interrupted"          # authoritative state
+    assert m["target_id"] == "owui-tools" and m["operator"] == "alice" and m["mode"] == "adaptive"   # preserved

@@ -94,6 +94,11 @@ class MissionManager:
             f"expires={target.authorization.expires}\nacknowledged_at={datetime.now(timezone.utc).isoformat()}\n")
         m = Mission(mid, ctx, datetime.now(timezone.utc))
         self.missions[mid] = m
+        if self.store is not None:   # persist metadata now so a crash before completion is recoverable
+            try:
+                self.store.save_mission(m.snapshot, mode=mode, created_at=m.created_at)
+            except Exception:
+                pass
         m.task = asyncio.create_task(self._run(m, agents), name=mid)
         return m
 
