@@ -115,7 +115,7 @@ class SpecialistAgent(Agent):
     async def run_probe(self, probe: Probe, attempt: int = 1) -> tuple[Evaluation, str]:
         lim = self.ctx.target.limits
         nonce = secrets.token_hex(3)
-        turns = probe.render_turns(nonce, self.account)   # single- or multi-turn
+        turns = probe.render_turns(nonce, self.account, self.ctx.target)   # scope-derived ids; single- or multi-turn
         prompt = "\n".join(turns)
         lock = self.ctx.shared_state_lock(probe.shared_state) if probe.shared_state else contextlib.nullcontext()
         if probe.shared_state and lock.locked():

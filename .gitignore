@@ -42,3 +42,9 @@ trace*.zip
 .vscode/
 ext/
 pilots/experiments/.completed.json
+
+# Phase 1 real-world validation harness (third-party app clone + local data/secrets)
+ext-p1/LibreChat/
+ext-p1/runs/
+ext-p1/tools_api/data/
+*.env

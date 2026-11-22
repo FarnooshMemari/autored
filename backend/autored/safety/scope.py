@@ -65,6 +65,9 @@ class Canary(BaseModel):
     id: str
     value: str
     meaning: str
+    locator: str | None = None   # identifier where this canary record lives (e.g. an order id a
+                                 # cross-account probe should reference), so probes derive targets
+                                 # from scope data instead of guessing ids.
 
 
 class Limits(BaseModel):
