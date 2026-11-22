@@ -51,3 +51,6 @@ Full writeup: PHASE1_VALIDATION_REPORT.md. Harness: ext-p1/ (librechat-config/RE
 
 ## Phase 2 — next: wire a LibreChat Agent tool action (tool-use/deception); strengthen adaptive
    leakage targeting (seed planner with scope canary ids); then Phase 3 visual, Phase 4 delivery.
+
+## Phase 3 — COMPLETE: premium command-center visual layer (commit b06ff7a), 0 console errors desktop+mobile.
+## Phase 4 — COMPLETE: PHASE4_DELIVERY_REPORT.md; journeys verified (64 backend + 6 frontend tests, CI green).
