@@ -35,6 +35,7 @@ export function AgentCharacter({ color, cue, size = 76, name, agentId }:
   const gid = (agentId ?? color).replace(/[^a-z0-9]/gi, "");
   return (
     <div className={`char char-${cue}`} style={{ width: size, height: size }} aria-label={`${name ?? "agent"}: ${m.label}`}>
+      <div className="char-ring" style={{ color }} />
       <div className="char-aura" style={{ background: color, opacity: m.aura }} />
       <div className="char-shadow" />
       <svg viewBox="0 0 100 100" width={size} height={size} className={busy ? "char-bob" : ""}>
