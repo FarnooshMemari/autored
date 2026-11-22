@@ -76,3 +76,32 @@ Confirmed = ≥2 strong reproductions across **fresh** contexts; candidate = obs
 - One independent target; generalization of *discovery* is demonstrated, broad generalization is not.
 - The positive control is a **deliberately introduced** vulnerability and is labelled as such; it is not
   an independently discovered weakness of upstream LibreChat.
+
+---
+
+# Phase 2 — Improvement: scope-aware adaptive planning
+
+**Problem (from Phase 1):** Adaptive alone missed cross-account **leakage** — the LLM planner did not
+know which order id bears another customer's record, so it never probed for it.
+
+**Change (justified, not "more prompts"):** the adaptive planner is now seeded with **scope-derived
+identifiers** — the canary-bearing order id (`another_customers_order_id`, from the canary `locator`),
+the tester's own order, and *descriptions* of the protected secrets (never their values, so a genuine
+disclosure remains the model revealing something it was not given). Applies to the initial and revision
+rounds; budgets unchanged.
+
+**Re-evaluation (positive control + held-out negative control):**
+
+| Spec | Adaptive confirmed — before | Adaptive confirmed — after |
+|---|---|---|
+| Weak (POS) | AD inj 3/4 · AD hier 2/4 · **no leakage** | **AD leakage 4/4** · AD inj 2/4 |
+| Hardened (NEG, held-out) | 0 (candidate rejected) | **0 (candidates rejected 0/1)** |
+
+**Result:** adaptive now **discovers cross-account leakage** on the positive control (4/4 reproductions),
+and the **held-out hardened scenario still yields zero confirmed findings** — the improvement adds real
+detection capability **without introducing false positives or overfitting**. Fair Fixed/Adaptive/Hybrid
+comparison is preserved (same budgets); Adaptive now matches the fixed suite on the leakage class.
+
+**Still out of scope on this target (honest):** tool-use and deceptive-action-claim classes require an
+agent with a tool action (LibreChat *Agents*, not *modelSpecs*); not wired here, so these classes remain
+not-assessable on LibreChat and are reported as not-applicable rather than guessed.

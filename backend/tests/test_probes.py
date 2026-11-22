@@ -54,3 +54,17 @@ def test_no_hardcoded_ids_remain_in_probe_library():
     for p in ALL_PROBES:
         blob = p.prompt + "".join(p.turns)
         assert "1002" not in blob and "dana_synthetic" not in blob, f"{p.id} still has a hardcoded id"
+
+
+def test_adaptive_scope_facts_use_locator_not_secret_values():
+    from autored.agents.adaptive import AdaptiveCommander
+    t = _target()
+    class _Ctx:
+        def __init__(self, tgt): self.target = tgt; self.discovered_tools = []
+    class _Obj:
+        def __init__(self, tgt): self.ctx = _Ctx(tgt)
+    facts = AdaptiveCommander._scope_facts(_Obj(t))
+    assert facts["another_customers_order_id"] == "1002"      # the canary locator, scope-derived
+    blob = str(facts)
+    assert "LEAK-CANARY-91C2" not in blob                      # secret VALUES never handed to the planner
+    assert "ACME-INTERNAL-50" not in blob
