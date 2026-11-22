@@ -1,16 +1,43 @@
 import type { AgentInfo, AutoRedEvent, FindingPayload, TargetInfo } from "../contracts/events";
 
-export interface ClientOptions { baseUrl?: string; token?: string }
+export interface ClientOptions { baseUrl?: string; token?: string; demo?: boolean }
 
 export class AutoRedClient {
   private base: string;
   private token?: string;
+  /** Public read-only demo: all data comes from sanitized static JSON; no backend,
+   * no token, and every mutating/control action is refused. */
+  readonly isDemo: boolean;
+  private demoBase: string;
   constructor(opts: ClientOptions = {}) {
     this.base = opts.baseUrl ?? "";
     this.token = opts.token;
+    this.isDemo = !!opts.demo;
+    this.demoBase = (import.meta.env.BASE_URL ?? "/") + "demo/";
+  }
+
+  /** Map a REST path to its static demo file (GET-only surface). */
+  private demoFile(path: string): string | null {
+    if (path === "/api/health") return "health";
+    if (path === "/api/agents") return "agents";
+    if (path === "/api/targets") return "targets";
+    if (path === "/api/missions") return "missions";
+    if (path === "/api/experiments") return "experiments";
+    const m = path.match(/^\/api\/missions\/([^/]+)(?:\/(report|events|findings))?$/);
+    if (m) return `missions/${m[1]}/${m[2] ?? "snapshot"}`;
+    return null;
   }
 
   private async req<T>(path: string, init: RequestInit = {}): Promise<T> {
+    if (this.isDemo) {
+      if (init.method && init.method !== "GET")
+        throw new Error("This action is disabled in the public read-only demo.");
+      const f = this.demoFile(path);
+      if (!f) throw new Error("Not available in the demo.");
+      const r = await fetch(`${this.demoBase}${f}.json`);
+      if (!r.ok) throw new Error(`demo data ${f} unavailable (HTTP ${r.status})`);
+      return r.json();
+    }
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (this.token) headers.Authorization = `Bearer ${this.token}`;
     const r = await fetch(this.base + path, { ...init, headers: { ...headers, ...(init.headers as object) } });
@@ -33,7 +60,9 @@ export class AutoRedClient {
   emergencyStop = (reason: string) => this.req<{ stopped: string[] }>("/api/emergency-stop", { method: "POST", body: JSON.stringify({ reason }) });
   resetEmergencyStop = () => this.req("/api/emergency-stop/reset", { method: "POST" });
 
-  artifactUrl = (missionId: string, name: string) => `${this.base}/api/missions/${missionId}/artifacts/${name}`;
+  artifactUrl = (missionId: string, name: string) =>
+    this.isDemo ? `${this.demoBase}missions/${missionId}/artifacts/${name}`
+                : `${this.base}/api/missions/${missionId}/artifacts/${name}`;
 
   private wsUrl(path: string, params: Record<string, string | number> = {}) {
     const origin = this.base || window.location.origin;
@@ -45,6 +74,7 @@ export class AutoRedClient {
 
   /** Event stream with automatic resume: reconnects with since=<last seq seen>. */
   streamEvents(missionId: string, since: number, onEvent: (e: AutoRedEvent) => void, onClose?: () => void): () => void {
+    if (this.isDemo) { onClose?.(); return () => {}; } // demo missions are recorded, never streamed
     let last = since, stopped = false, ws: WebSocket | null = null, retry = 500;
     const open = () => {
       ws = new WebSocket(this.wsUrl(`/ws/missions/${missionId}`, { since: last }));
@@ -61,6 +91,7 @@ export class AutoRedClient {
 
   /** Live browser frames (JPEG) as object URLs. Caller revokes previous URLs. */
   streamFrames(missionId: string, agentId: string, onFrame: (objectUrl: string) => void): () => void {
+    if (this.isDemo) return () => {};
     const ws = new WebSocket(this.wsUrl(`/ws/missions/${missionId}/agents/${agentId}/frames`));
     ws.binaryType = "blob";
     ws.onmessage = (m) => onFrame(URL.createObjectURL(m.data as Blob));

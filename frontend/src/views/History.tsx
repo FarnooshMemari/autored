@@ -1,38 +1,46 @@
 import { useEffect, useState } from "react";
 import type { AutoRedClient } from "../api/client";
-import { Empty, Section, sevClass, stClass } from "../components/common";
+import { Empty, Section, sevClass } from "../components/common";
 
 export function History({ client, onOpen }: { client: AutoRedClient; onOpen: (id: string) => void }) {
   const [missions, setMissions] = useState<any[]>([]);
   const [report, setReport] = useState<any | null>(null);
+  const [sel, setSel] = useState<string | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
   useEffect(() => { client.missions().then(setMissions).catch(() => {}); }, [client]);
 
   const openReport = async (id: string) => {
-    setLoadingReport(true); setReport(null);
+    setSel(id); setLoadingReport(true); setReport(null);
     try { setReport(await client.missionReport(id)); } catch (e) { setReport({ error: String(e) }); } finally { setLoadingReport(false); }
   };
+  const phaseClass = (p: string) => p === "completed" ? "ph-ok" : p === "interrupted" ? "ph-warn" : "ph-mut";
 
   return (
-    <Section title="Mission History & Reporting" sub="Reopen completed missions and generate reproducible reports.">
-      <div className="grid" style={{ gridTemplateColumns: "1fr 1.1fr", gap: 14 }}>
-        <div className="card">
-          {missions.length === 0 ? <Empty>No missions.</Empty> :
-            <table><thead><tr><th>Mission</th><th>Phase</th><th>Confirmed</th><th></th></tr></thead>
-              <tbody>{missions.map((m) => (
-                <tr key={m.mission_id}>
-                  <td><code>{m.mission_id}</code><div className="faint" style={{ fontSize: 11 }}>{m.target_id} · {m.mode ?? "—"}{m.source === "stored" ? " · 💾" : ""}</div></td>
-                  <td><span className={m.phase === "completed" ? "st-confirmed" : m.phase === "interrupted" ? "sev-medium" : "muted"}>{m.phase}</span></td>
-                  <td>{m.confirmed ?? "—"}</td>
-                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                    <button className="btn sm ghost" onClick={() => onOpen(m.mission_id)}>Open</button>{" "}
-                    <button className="btn sm" onClick={() => openReport(m.mission_id)}>Report</button>
-                  </td>
-                </tr>
-              ))}</tbody></table>}
+    <Section title="Mission History & Reporting" sub="Reopen completed and interrupted missions and generate reproducible reports.">
+      <div className="history-grid">
+        <div className="history-list">
+          {missions.length === 0 ? <div className="card"><Empty>No missions.</Empty></div> :
+            missions.map((m) => (
+              <div key={m.mission_id} className={`rowcard ${sel === m.mission_id ? "sel" : ""}`}>
+                <div className="rc-main">
+                  <div className="rc-top">
+                    <span className={`status-chip ${phaseClass(m.phase)}`}>{m.phase}</span>
+                    <code className="rc-id">{m.mission_id}</code>
+                  </div>
+                  <div className="rc-sub">{m.target_id} · {m.mode ?? "—"}{m.source === "stored" ? " · stored" : ""}
+                    {typeof m.confirmed === "number" && <span className="rc-conf"> · <strong className="st-confirmed">{m.confirmed}</strong> confirmed</span>}</div>
+                </div>
+                <div className="rc-actions">
+                  <button className="btn sm ghost" onClick={() => onOpen(m.mission_id)}>Open</button>
+                  <button className="btn sm" onClick={() => openReport(m.mission_id)}>Report</button>
+                </div>
+              </div>
+            ))}
         </div>
-        <div className="card pad">
-          <div className="row between" style={{ marginBottom: 10 }}><strong>Report</strong>
+
+        <div className="card pad report-panel">
+          <div className="row between" style={{ marginBottom: 12 }}>
+            <div className="eyebrow" style={{ margin: 0 }}>Reproducible report</div>
             {report && !report.error && <button className="btn sm" onClick={() => {
               const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
               const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${report.mission_id}.report.json`; a.click();
@@ -41,17 +49,19 @@ export function History({ client, onOpen }: { client: AutoRedClient; onOpen: (id
           {loadingReport ? <Empty><span className="spinner" /> generating…</Empty> :
             !report ? <Empty>Select a mission and click “Report”.</Empty> :
             report.error ? <Empty><span className="sev-high">{report.error}</span></Empty> :
-            <div style={{ fontSize: 13 }}>
+            <div>
               <code className="faint">{report.mission_id}</code>
-              <div className="row wrap" style={{ gap: 8, margin: "10px 0" }}>
-                {Object.entries((report.summary ?? {})).filter(([k]) => ["confirmed", "suspected", "inconclusive", "passed", "not_applicable", "probes_run", "llm_calls"].includes(k))
-                  .map(([k, v]) => <span key={k} className="pill">{k}: {String(v)}</span>)}
+              <div className="report-stats">
+                {Object.entries((report.summary ?? {})).filter(([k]) => ["confirmed", "suspected", "inconclusive", "passed", "probes_run", "llm_calls"].includes(k))
+                  .map(([k, v]) => <div key={k} className="stat-tile sm"><div className="stat-v">{String(v)}</div><div className="stat-l">{k.replace("_", " ")}</div></div>)}
               </div>
-              <div className="sub" style={{ margin: "10px 0 6px" }}>Confirmed findings</div>
-              {(report.confirmed ?? []).length === 0 ? <div className="faint">None confirmed.</div> :
-                report.confirmed.map((f: any) => <div key={f.finding_id} className="card pad" style={{ background: "var(--surface-2)", marginBottom: 6 }}>
-                  <div className="row between"><strong className={sevClass(f.severity)}>{f.probe_id} — {f.title}</strong><span className={stClass("confirmed")}>{Math.round((f.confirmation_rate ?? 0) * 100)}%</span></div>
-                  {(f.evidence ?? []).map((e: any, i: number) => <div key={i} className="mono faint" style={{ fontSize: 11, marginTop: 4 }}>{e.kind}: {e.detail?.slice(0, 120)}</div>)}
+              <div className="console-lbl" style={{ margin: "16px 0 8px" }}>Confirmed findings</div>
+              {(report.confirmed ?? []).length === 0 ? <div className="faint" style={{ fontSize: 13 }}>None confirmed on this mission.</div> :
+                report.confirmed.map((f: any) => <div key={f.finding_id} className="report-finding">
+                  <div className="row between" style={{ gap: 10 }}>
+                    <strong className={sevClass(f.severity)}>{f.probe_id} — {f.title}</strong>
+                    <span className="status-chip s-confirmed pct">{Math.round((f.confirmation_rate ?? 0) * 100)}%</span></div>
+                  {(f.evidence ?? []).slice(0, 2).map((e: any, i: number) => <div key={i} className="mono faint" style={{ fontSize: 11.5, marginTop: 5 }}>{e.kind}: {e.detail?.slice(0, 140)}</div>)}
                 </div>)}
             </div>}
         </div>

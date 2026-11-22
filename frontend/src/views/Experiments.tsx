@@ -27,10 +27,8 @@ export function Experiments({ client }: { client: AutoRedClient }) {
             { label: "probes", values: [bva.baseline_vulnerable?.probes_run ?? 0, bva.adaptive_vulnerable?.probes_run ?? 0, bva.adaptive_hardened_heldout?.probes_run ?? 0] },
             { label: "llm", values: [bva.baseline_vulnerable?.llm_calls ?? 0, bva.adaptive_vulnerable?.llm_calls ?? 0, bva.adaptive_hardened_heldout?.llm_calls ?? 0] },
           ]} />
-        <div className="card pad" style={{ background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.25)", marginTop: 10, fontSize: 12.5 }}>
-          <strong className="sev-medium">Honest result:</strong> the fixed baseline found more confirmed vulnerabilities than the adaptive planner;
-          adaptive was more probe-efficient but did not discover anything the baseline missed. We do not claim adaptive improves discovery.
-        </div>
+        <div className="note"><strong className="sev-medium">Honest result:</strong> the fixed baseline found more confirmed vulnerabilities than the adaptive planner;
+          adaptive was more probe-efficient but did not discover anything the baseline missed. We do not claim adaptive improves discovery.</div>
       </div>}
 
       {three && <div className="card pad" style={{ marginBottom: 14 }}>
@@ -43,10 +41,8 @@ export function Experiments({ client }: { client: AutoRedClient }) {
               <td className="muted">{(three[m].classes||[]).join(", ")||"—"}</td>
               <td>{three[m].probes}</td><td>{three[m].llm_calls}</td><td>{three[m].duration_s}s</td></tr>
           ))}</tbody></table>
-        <div className="card pad" style={{ background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.25)", marginTop: 10, fontSize: 12.5 }}>
-          <strong className="sev-medium">Honest result:</strong> hybrid confirmed one extra probe but of the <em>same</em> vulnerability
-          class — deduplicated by class, hybrid = fixed coverage at higher cost. No evidence adaptive/hybrid improves discovery here.
-        </div>
+        <div className="note"><strong className="sev-medium">Honest result:</strong> hybrid confirmed one extra probe but of the <em>same</em> vulnerability
+          class — deduplicated by class, hybrid = fixed coverage at higher cost. No evidence adaptive/hybrid improves discovery here.</div>
       </div>}
 
       <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 14 }}>
