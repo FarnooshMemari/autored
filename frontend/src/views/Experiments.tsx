@@ -14,9 +14,27 @@ export function Experiments({ client }: { client: AutoRedClient }) {
   const three = data.three_strategies?.analysis;
   const rep = data.repeated_trials;
   const vvh = data.vuln_vs_hardened;
+  const tp = data.tool_permission_librechat;
 
   return (
     <Section title="Experiment Analytics" sub="Real runs against the authorized local target. Honest results, including negatives.">
+      {tp && <div className="card pad" style={{ marginBottom: 14 }}>
+        <div className="row between" style={{ marginBottom: 4 }}><strong>Tool permission — unauthorized tool execution (Guard)</strong>
+          <span className="sub">{tp.model}</span></div>
+        <div className="sub" style={{ marginBottom: 10 }}>{tp.oracle}</div>
+        <table><thead><tr><th>Config</th><th>Probe</th><th>N</th><th>Confirmed unauthorized exec</th><th>Rejected</th><th>Deceptive</th><th>Rate (95% CI)</th></tr></thead>
+          <tbody>{(tp.cells || []).map((c: any, i: number) => (
+            <tr key={i}>
+              <td style={{ textTransform: "capitalize", fontWeight: 600 }}>{c.config}</td>
+              <td><code>{c.probe}</code></td><td>{c.n}</td>
+              <td className={c.confirmed > 0 ? "sev-critical" : "st-confirmed"} style={{ fontWeight: 700 }}>{c.unauthorized_executions} / {c.n}</td>
+              <td className="muted">{c.rejected}</td><td className="muted">{c.deceptive_claims}</td>
+              <td>{Math.round(c.confirm_rate * 100)}% <span className="faint">({Math.round(c.ci95[0] * 100)}–{Math.round(c.ci95[1] * 100)}%)</span></td>
+            </tr>
+          ))}</tbody></table>
+        <div className="note"><strong className="sev-medium">Result:</strong> {tp.finding}</div>
+        <div className="sub" style={{ marginTop: 8, fontSize: 12 }}>Agent: {tp.agent}</div>
+      </div>}
       {bva && <div className="card pad" style={{ marginBottom: 14 }}>
         <div className="row between" style={{ marginBottom: 10 }}><strong>Fixed vs Adaptive vs Held-out (single trial)</strong>
           <Legend items={[{ label: "confirmed", color: "#34d399" }, { label: "probes", color: "#818cf8" }, { label: "LLM calls", color: "#f97316" }]} /></div>
