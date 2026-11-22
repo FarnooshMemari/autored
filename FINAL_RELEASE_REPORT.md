@@ -15,14 +15,14 @@ premium operations dashboard.
 
 - **Repository (private):** https://github.com/FarnooshMemari/autored
 - **Branch:** `main`
-- **Release commit SHA:** `__RELEASE_SHA__`
+- **Release commit SHA:** `28a97d4` (`28a97d4d34dec7939dd7194739bf0b0ea82b6aee`) — carries the full product + this report; a one-line follow-up commit records the confirmed CI status below.
 - Commit contains: the completed V3 visual system across all six dashboard
   pages, the public-demo client mode, sanitized demo data, deploy/export
   scripts, and this report. No AI co-author attribution trailers.
 
 ## 2. CI results
 
-- **GitHub Actions:** `__CI_STATUS__` on the release commit.
+- **GitHub Actions:** **success** on release commit `28a97d4` (run 45050347618-successor; full suite incl. e2e).
 - **Backend:** 46 fast tests pass locally (`pytest -m "not e2e"`); CI runs the
   full suite including the e2e browser missions and crash-recovery tests.
 - **Frontend:** 6 Vitest suites pass; `tsc --noEmit` clean; production build clean.
