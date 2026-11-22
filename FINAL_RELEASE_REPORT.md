@@ -52,6 +52,12 @@ data and genuine recorded evidence:
   delegation probe-counts; selectable inspection workspace; authentic
   **ATTACK → OBSERVED → VERDICT** evidence pipeline; a full-size browser-evidence
   viewer; the Commander decision/delegation console; an activity timeline.
+- **Attack Tracker** — every planned attack grouped by specialist, with real
+  execution status (pending/running/completed/skipped/failed) and security
+  verdict (confirmed/not-confirmed/inconclusive/not-assessed), progress
+  indicators, and per-attack prompt/response/evidence/verdict on click. Derived
+  purely from the plan + event log + findings (real data only; distinguishes
+  planned vs. executed; works live and in recorded replay).
 - **Findings Explorer** — every confirmed finding with severity, category,
   reproduction statistics (95% Wilson CI), canary/oracle proof, and the original
   browser screenshot.
