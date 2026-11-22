@@ -48,3 +48,4 @@ ext-p1/LibreChat/
 ext-p1/runs/
 ext-p1/tools_api/data/
 *.env
+ext-p1/*.png
