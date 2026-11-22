@@ -4,15 +4,17 @@ import type { AgentInfo, TargetInfo } from "./contracts/events";
 import { useMission } from "./state/useMission";
 import { MissionControl } from "./views/MissionControl";
 import { Operations } from "./views/Operations";
+import { AttackTracker } from "./views/AttackTracker";
 import { Findings } from "./views/Findings";
 import { Experiments } from "./views/Experiments";
 import { History } from "./views/History";
 import { SystemHealth } from "./views/SystemHealth";
 
-type View = "control" | "ops" | "findings" | "experiments" | "history" | "health";
+type View = "control" | "ops" | "attacks" | "findings" | "experiments" | "history" | "health";
 const NAV: { id: View; label: string; ic: string; sect: string }[] = [
   { id: "control", label: "Mission Control", ic: "◎", sect: "Operations" },
   { id: "ops", label: "Live Operations", ic: "⬡", sect: "Operations" },
+  { id: "attacks", label: "Attack Tracker", ic: "◈", sect: "Operations" },
   { id: "findings", label: "Findings", ic: "⚑", sect: "Operations" },
   { id: "experiments", label: "Experiments", ic: "📊", sect: "Analysis" },
   { id: "history", label: "History & Reports", ic: "🗄", sect: "Analysis" },
@@ -88,6 +90,7 @@ export default function App() {
       <main className="main">
         {view === "control" && <MissionControl client={client} targets={targets} agents={agents} onOpen={openMission} />}
         {view === "ops" && missionPane(<Operations client={client} state={state} agents={agents} onStop={stop} />)}
+        {view === "attacks" && missionPane(<AttackTracker client={client} state={state} agents={agents} />)}
         {view === "findings" && missionPane(<Findings client={client} state={state} />)}
         {view === "experiments" && <Experiments client={client} />}
         {view === "history" && <History client={client} onOpen={openMission} />}
