@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 
 export type LiveConn = { url: string; token: string };
 
@@ -44,7 +45,7 @@ export function LiveConnect({ current, onConnect, onDisconnect }:
   return (
     <span className="live-connect">
       <button className="btn sm" onClick={() => setOpen((o) => !o)}>⚡ Run live assessment</button>
-      {open && <div className="live-pop">
+      {open && createPortal(<div className="live-pop">
         <div className="eyebrow">Connect your AutoRed backend</div>
         <p className="faint" style={{ fontSize: 11.5, margin: "2px 0 8px" }}>
           This public site is read-only on its own. To run real missions, start a backend you
@@ -59,7 +60,7 @@ export function LiveConnect({ current, onConnect, onDisconnect }:
         {state === "error" && <div className="sev-high" style={{ fontSize: 12, marginTop: 6 }}>{msg}</div>}
         <div className="faint" style={{ fontSize: 11, marginTop: 8 }}>
           No backend yet? <code>git clone</code> the repo and run <code>scripts/run-local.sh</code> — see the README.</div>
-      </div>}
+      </div>, document.body)}
     </span>
   );
 }
