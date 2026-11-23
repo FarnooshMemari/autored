@@ -130,6 +130,18 @@ Deferred (needs infrastructure you own or fund — not $0):
 
 ---
 
+## 5a. Browser note — connecting the public site to a local backend
+
+Chrome's **Private Network Access** blocks a *public* `https` page (the GitHub Pages
+site) from reaching a `http://localhost` backend. Two reliable ways around it:
+- **Connect to a public `https` backend** (e.g. your HF Space) — a normal cross-origin
+  request, no PNA. This is the recommended "Run live assessment" path.
+- **Run the whole app locally** — `npm run dev` in `frontend/` talks to `localhost:8000`
+  directly (no PNA, no LiveConnect needed). Best for self-hosting against your own targets.
+
+The backend also sends `Access-Control-Allow-Private-Network: true` on the CORS preflight,
+which lets newer Chrome connect a public page to a local backend when it chooses to ask.
+
 ## 6. What is NOT done (honest status)
 - No backend is currently hosted anywhere. The public URL serves the **static
   two-mode frontend**; "Run live assessment" needs a backend you start (§3) or

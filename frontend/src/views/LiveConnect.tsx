@@ -47,9 +47,11 @@ export function LiveConnect({ current, onConnect, onDisconnect }:
       {open && <div className="live-pop">
         <div className="eyebrow">Connect your AutoRed backend</div>
         <p className="faint" style={{ fontSize: 11.5, margin: "2px 0 8px" }}>
-          This public site is read-only on its own. To run real missions, start a backend you control and connect to it here.</p>
+          This public site is read-only on its own. To run real missions, start a backend you
+          control and connect to it. A public <code>https</code> backend works best; browsers
+          restrict a public site from reaching <code>localhost</code> (see README).</p>
         <label className="field">Backend URL
-          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="http://localhost:8000" /></label>
+          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://your-space.hf.space" /></label>
         <label className="field">Access token <span className="faint">(if the backend requires one)</span>
           <input value={token} onChange={(e) => setToken(e.target.value)} placeholder="AUTORED_API_TOKEN" type="password" /></label>
         <button className="btn sm primary" style={{ marginTop: 8 }} disabled={state === "connecting" || !url.trim()} onClick={connect}>

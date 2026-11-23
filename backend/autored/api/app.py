@@ -94,6 +94,27 @@ def create_app(settings: Settings | None = None, scopes: ScopeRegistry | None = 
     app = FastAPI(title="AutoRed", version="0.1.0", lifespan=lifespan)
     app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins),
                        allow_methods=["*"], allow_headers=["*"])
+
+    # Registered AFTER CORS so it is the OUTERMOST middleware and can answer the
+    # Private-Network-Access preflight before CORS does. Chrome blocks a public (https)
+    # page from reaching a local/loopback backend unless the server opts in here.
+    @app.middleware("http")
+    async def _private_network_access(request: Request, call_next):
+        if (request.method == "OPTIONS"
+                and request.headers.get("access-control-request-private-network") == "true"):
+            from starlette.responses import Response as _R
+            origin = request.headers.get("origin", "")
+            allowed = "*" in settings.cors_origins or origin in settings.cors_origins
+            resp = _R(status_code=204)
+            if allowed and origin:
+                resp.headers["Access-Control-Allow-Origin"] = origin
+                resp.headers["Access-Control-Allow-Private-Network"] = "true"
+                resp.headers["Access-Control-Allow-Methods"] = "*"
+                resp.headers["Access-Control-Allow-Headers"] = "*"
+                resp.headers["Vary"] = "Origin"
+            return resp
+        return await call_next(request)
+
     app.state.manager = manager
 
     def auth(request: Request) -> None:
