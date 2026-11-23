@@ -50,7 +50,11 @@ class Agent:
     def __init__(self, agent_id: str, ctx: MissionContext):
         self.id, self.ctx = agent_id, ctx
         self.state = AgentRuntimeState()
-        self.account = ctx.target.accounts[agent_id]
+        # Onboarded public targets may expose a login-free chat and provide no synthetic
+        # accounts; fall back to a guest identity (login config is None => no sign-in step).
+        from ..safety.scope import Account
+        self.account = ctx.target.accounts.get(agent_id) or Account(
+            username=f"guest-{agent_id}", password="", owned_orders=[])
         self.browser = AgentBrowser(ctx.runtime, ctx.frames, ctx.mission_id, agent_id,
                                     ctx.target.guard(), self.emit, identify_as=ctx.target.identify_as)
         self.chat = ChatSession(self.browser, ctx.target)

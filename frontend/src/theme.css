@@ -590,3 +590,32 @@ body::after { content:""; position:fixed; inset:0; z-index:-1; pointer-events:no
   .atk-head { grid-template-columns: auto 1fr auto auto; }
   .atk-head .atk-adaptive { display: none; }
 }
+
+/* ---- Test Your AI Website (dynamic onboarding) ---------------------- */
+.onboard { margin: 14px 0; border: 1px solid var(--border); }
+.onboard-head { display: flex; align-items: center; gap: 10px; }
+.onboard-head h3 { margin: 0; font-size: 17px; letter-spacing: .2px; }
+.onboard-badge { font-size: 10.5px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase;
+  color: var(--bg); background: var(--accent); padding: 2px 7px; border-radius: 6px; }
+.onboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin-top: 10px; }
+.onboard textarea { width: 100%; resize: vertical; font: inherit; color: var(--text);
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-top: 4px; }
+.onboard-adv { margin-top: 8px; padding: 10px 12px; border: 1px dashed var(--border); border-radius: 10px; }
+.onboard-result { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--border);
+  border-radius: 12px; background: color-mix(in srgb, var(--surface) 70%, transparent); }
+.onboard-kv { display: flex; align-items: center; gap: 10px; margin-top: 6px; font-size: 13px; }
+.onboard-kv .muted { min-width: 160px; }
+.onboard-verify { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.onboard-verify-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 6px; }
+.onboard-token { display: block; font-size: 11.5px; padding: 5px 8px; margin: 4px 0;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px; word-break: break-all; }
+.onb-in { display: block; width: 100%; font: inherit; font-size: 13px; color: var(--text);
+  background: var(--bg); border: 1px solid var(--border); border-radius: 7px; padding: 6px 9px; margin: 4px 0; }
+.chip { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--muted); }
+.chip.st-confirmed { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
+.demo-onboard { opacity: .92; }
+@media (max-width: 720px) {
+  .onboard-grid, .onboard-verify-cols { grid-template-columns: 1fr; }
+  .onboard-kv { flex-wrap: wrap; } .onboard-kv .muted { min-width: 0; }
+}

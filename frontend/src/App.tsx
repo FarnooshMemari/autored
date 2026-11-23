@@ -88,7 +88,8 @@ export default function App() {
         ))}
       </nav>
       <main className="main">
-        {view === "control" && <MissionControl client={client} targets={targets} agents={agents} onOpen={openMission} />}
+        {view === "control" && <MissionControl client={client} targets={targets} agents={agents} onOpen={openMission}
+          reloadTargets={() => client.targets().then(setTargets).catch(() => {})} />}
         {view === "ops" && missionPane(<Operations client={client} state={state} agents={agents} onStop={stop} />)}
         {view === "attacks" && missionPane(<AttackTracker client={client} state={state} agents={agents} />)}
         {view === "findings" && missionPane(<Findings client={client} state={state} />)}

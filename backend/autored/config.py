@@ -16,6 +16,11 @@ class Settings:
     max_active_missions: int = 1
     api_token: str | None = None          # if set, required as Bearer / ?token=
     cors_origins: tuple[str, ...] = ("http://localhost:5173", "http://127.0.0.1:5173")
+    # --- dynamic target onboarding ("enter a URL") ---
+    enable_onboarding: bool = True        # expose /api/onboarding/* (off => feature hidden)
+    allow_private_targets: bool = False   # DEV ONLY: permit loopback/RFC-1918 targets (SSRF guard relaxed)
+    admin_token: str | None = None        # grants admin-approved authorization for onboarded targets
+    onboarding_store: Path = ROOT / "runs" / "onboarded-targets.json"
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -30,4 +35,11 @@ class Settings:
         s.headless = os.environ.get("AUTORED_HEADLESS", "1") != "0"
         s.max_active_missions = int(os.environ.get("AUTORED_MAX_ACTIVE_MISSIONS", s.max_active_missions))
         s.api_token = os.environ.get("AUTORED_API_TOKEN") or None
+        s.enable_onboarding = os.environ.get("AUTORED_ENABLE_ONBOARDING", "1") != "0"
+        s.allow_private_targets = os.environ.get("AUTORED_ALLOW_PRIVATE_TARGETS", "0") == "1"
+        s.admin_token = os.environ.get("AUTORED_ADMIN_TOKEN") or None
+        if v := os.environ.get("AUTORED_ONBOARDING_STORE"):
+            s.onboarding_store = Path(v)
+        elif os.environ.get("AUTORED_RUNS_DIR"):
+            s.onboarding_store = s.runs_dir / "onboarded-targets.json"
         return s

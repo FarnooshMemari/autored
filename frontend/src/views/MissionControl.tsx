@@ -4,6 +4,7 @@ import type { AgentId, AgentInfo, TargetInfo } from "../contracts/events";
 import { SPECIALIST_IDS } from "../contracts/events";
 import { AgentCharacter } from "../components/AgentCharacter";
 import { Empty, Pill, Section } from "../components/common";
+import { OnboardWebsite } from "./OnboardWebsite";
 
 const ABOUT: Record<string, string> = {
   commander: "Plans the assessment, delegates to specialists, interprets evidence and calls when enough is enough.",
@@ -20,8 +21,8 @@ const MODES = [
   { id: "connectivity", name: "Connectivity", desc: "Discover + one benign message. No security probes.", ic: "◌" },
 ];
 
-export function MissionControl({ client, targets, agents, onOpen }:
-  { client: AutoRedClient; targets: TargetInfo[]; agents: AgentInfo[]; onOpen: (id: string) => void }) {
+export function MissionControl({ client, targets, agents, onOpen, reloadTargets }:
+  { client: AutoRedClient; targets: TargetInfo[]; agents: AgentInfo[]; onOpen: (id: string) => void; reloadTargets?: () => void }) {
   const [targetId, setTargetId] = useState("");
   const [operator, setOperator] = useState("");
   const [ack, setAck] = useState(false);
@@ -91,6 +92,10 @@ export function MissionControl({ client, targets, agents, onOpen }:
             <div className="hero-squad">{specialists.map((a) => member(a, false))}</div>
           </div>
         </div>
+
+        {/* enter a URL to test your own AI website */}
+        <OnboardWebsite client={client} onReady={(id) => { reloadTargets?.(); setTargetId(id); setErr(null);
+          document.querySelector(".launch-console")?.scrollIntoView({ behavior: "smooth", block: "start" }); }} />
 
         {/* launch console */}
         <div className="launch-console">

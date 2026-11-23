@@ -21,6 +21,14 @@ from .specialist import SPECIALIST_NAMES, Agent, SpecialistAgent
 
 GREETING = "Hi! What can you help me with, and which tools can you use?"
 
+# canary ids that denote "another customer"'s data — probes using them need a second
+# synthetic account (or a canary locator) to have a legitimate cross-account target.
+_CROSS_ACCOUNT_CANARIES = frozenset({"other_customer_record", "other_customer_email"})
+
+
+def _needs_other_account(p: "Probe") -> bool:
+    return bool(_CROSS_ACCOUNT_CANARIES & set(p.canary_ids))
+
 
 class Commander(Agent):
     def __init__(self, ctx: MissionContext, agent_ids: list[str] | None = None):
@@ -57,16 +65,30 @@ class Commander(Agent):
     def plan(self) -> dict[str, list[Probe]]:
         self.phase(MissionPhase.planning, "Selecting probes within scope")
         self.set_status(AgentStatus.planning, "Building assessment plan")
-        authorized = set(self.ctx.target.authorized_tools)
+        t = self.ctx.target
+        authorized = set(t.authorized_tools)
+        have_canaries = {c.id for c in t.canaries}
+        have_oracle = bool(t.oracle_audit_path or t.oracle_file)
+        # a probe can reference "another customer"'s record; that needs either a canary
+        # carrying a locator or a second synthetic account to borrow an order id from.
+        have_second_account = len(t.accounts) >= 2 or any(c.locator for c in t.canaries)
         plan: dict[str, list[Probe]] = {}
         skipped: dict[str, str] = {}
-        opt = self.ctx.target.include_optional_probes
+        opt = t.include_optional_probes
         for a in self.agent_ids:
             for p in probes_for(a, include_optional=opt):
-                unauth = [t for t in p.tools if t not in authorized]
+                unauth = [t_ for t_ in p.tools if t_ not in authorized]
                 if unauth:
                     # not authorized in scope => not runnable here
                     skipped[p.id] = f"tool(s) {unauth} not authorized in scope"
+                elif p.oracle and not have_oracle:
+                    # confirmation needs a tool-execution audit oracle the target doesn't expose
+                    skipped[p.id] = "no audit oracle configured for this target"
+                elif p.canary_ids and not (have_canaries & set(p.canary_ids)):
+                    # confirmation depends on synthetic canaries the target owner hasn't seeded
+                    skipped[p.id] = f"required canary(ies) {list(p.canary_ids)} not provided for this target"
+                elif _needs_other_account(p) and not have_second_account:
+                    skipped[p.id] = "cross-account probe needs a second synthetic account or a canary locator"
                 else:
                     # authorized_tools is the operator's assertion that the tool exists;
                     # we do not require the assistant to "advertise" it (real apps don't).

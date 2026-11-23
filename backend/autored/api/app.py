@@ -14,6 +14,8 @@ from ..config import Settings
 from ..events.schema import ALL_AGENT_IDS, SCHEMA_VERSION, Event, FindingPayload
 from ..missions.manager import MissionManager, MissionRejected
 from ..missions.snapshot import MissionSnapshot
+from ..onboarding import OnboardingError, OnboardingRegistry, SSRFError, validate_target_url
+from ..onboarding.verify import verify_domain
 from ..safety.scope import ScopeRegistry
 from ..storage.store import MissionStore
 
@@ -30,6 +32,31 @@ class EmergencyStopBody(BaseModel):
     reason: str = "operator emergency stop"
 
 
+class OnboardTarget(BaseModel):
+    url: str = Field(description="Target website URL (http/https) the operator is authorized to test")
+    name: str = ""
+    operator: str = Field(min_length=1)
+    scope_description: str = Field(min_length=1, description="Written testing scope / rules of engagement")
+    methods: list[str] = Field(default_factory=lambda: ["connectivity"],
+                               description="Requested methods: connectivity and/or security_probes")
+    chat_path: str = "/"
+    chat_selectors: dict | None = None   # manual fallback: input/send/send_mode/assistant_message/frame/launcher
+    login: dict | None = None            # optional LoginConfig fields
+    # optional owner-supplied test material (enables deeper, evidence-based probes)
+    canaries: list[dict] | None = None
+    accounts: dict | None = None
+    authorized_tools: list[str] | None = None
+    oracle_audit_path: str | None = None
+
+
+class VerifyTarget(BaseModel):
+    method: str = Field(description="'domain' (well-known token) or 'admin' (admin-approved authorization)")
+    admin_token: str | None = None
+    reference: str | None = None
+    approved_by: str | None = None
+    expires: str | None = None           # ISO date for the admin authorization record
+
+
 class AgentInfo(BaseModel):
     id: str
     name: str = Field(description="Character name, e.g. Inky")
@@ -42,8 +69,10 @@ class AgentInfo(BaseModel):
 def create_app(settings: Settings | None = None, scopes: ScopeRegistry | None = None) -> FastAPI:
     settings = settings or Settings.from_env()
     runtime, frames = BrowserRuntime(headless=settings.headless), FrameHub()
-    manager = MissionManager(scopes or ScopeRegistry.load(settings.scope_path), runtime, frames,
+    scope_reg = scopes or ScopeRegistry.load(settings.scope_path)
+    manager = MissionManager(scope_reg, runtime, frames,
                              settings.runs_dir, settings.max_active_missions, store=MissionStore(settings.db_path))
+    onboarding = OnboardingRegistry(scope_reg, settings.onboarding_store) if settings.enable_onboarding else None
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -133,9 +162,76 @@ def create_app(settings: Settings | None = None, scopes: ScopeRegistry | None = 
 
     @app.get("/api/targets", dependencies=[api])
     async def targets():
+        onboarded_ids = {ot.target.id for ot in onboarding.list()} if onboarding else set()
         return [{"id": t.id, "name": t.name, "base_url": t.base_url,
                  "authorization": t.authorization.model_dump(mode="json"),
+                 "authorized_methods": list(t.authorized_methods),
+                 "onboarded": t.id in onboarded_ids,
                  "limits": t.limits.model_dump()} for t in manager.scopes.list()]
+
+    def _onboarding_or_404() -> OnboardingRegistry:
+        if onboarding is None:
+            raise HTTPException(404, "target onboarding is disabled on this deployment")
+        return onboarding
+
+    @app.get("/api/onboarding/config", dependencies=[api])
+    async def onboarding_config():
+        return {"enabled": onboarding is not None,
+                "allow_private_targets": settings.allow_private_targets,
+                "admin_approval_available": bool(settings.admin_token)}
+
+    @app.get("/api/onboarding/targets", dependencies=[api])
+    async def onboarding_list():
+        reg = _onboarding_or_404()
+        return [ot.public_view() for ot in reg.list()]
+
+    @app.post("/api/onboarding/targets", status_code=201, dependencies=[api])
+    async def onboarding_create(body: OnboardTarget):
+        reg = _onboarding_or_404()
+        try:
+            resolved = validate_target_url(body.url, allow_private=settings.allow_private_targets)
+        except SSRFError as e:
+            raise HTTPException(422, f"URL rejected: {e}")
+        try:
+            ot = reg.onboard(
+                resolved, name=body.name, scope_description=body.scope_description,
+                requested_methods=body.methods, operator=body.operator,
+                chat_path=body.chat_path, chat_selectors=body.chat_selectors, login=body.login,
+                canaries=body.canaries, accounts=body.accounts,
+                authorized_tools=body.authorized_tools, oracle_audit_path=body.oracle_audit_path)
+        except OnboardingError as e:
+            raise HTTPException(409, str(e))
+        return ot.public_view()
+
+    @app.post("/api/onboarding/targets/{tid}/verify", dependencies=[api])
+    async def onboarding_verify(tid: str, body: VerifyTarget):
+        from datetime import date as _date
+        reg = _onboarding_or_404()
+        if reg.get(tid) is None:
+            raise HTTPException(404, "onboarded target not found")
+        try:
+            if body.method == "domain":
+                detail = verify_domain(reg, tid, allow_private=settings.allow_private_targets)
+                ot = reg.mark_verified(tid, method="domain", reference=f"domain-verified:{tid}",
+                                       approved_by="domain-control", expires=_date.today().replace(year=_date.today().year + 1),
+                                       detail=detail)
+            elif body.method == "admin":
+                if not settings.admin_token or body.admin_token != settings.admin_token:
+                    raise HTTPException(403, "invalid or missing admin token")
+                if not (body.reference and body.approved_by and body.expires):
+                    raise HTTPException(422, "admin approval requires reference, approved_by and expires")
+                try:
+                    exp = _date.fromisoformat(body.expires)
+                except ValueError:
+                    raise HTTPException(422, "expires must be an ISO date (YYYY-MM-DD)")
+                ot = reg.mark_verified(tid, method="admin", reference=body.reference,
+                                       approved_by=body.approved_by, expires=exp,
+                                       detail="administrator-approved written authorization")
+            else:
+                raise HTTPException(422, "method must be 'domain' or 'admin'")
+        except OnboardingError as e:
+            raise HTTPException(422, str(e))
+        return ot.public_view()
 
     @app.post("/api/missions", status_code=201, response_model=MissionSnapshot, dependencies=[api])
     async def create(body: CreateMission):

@@ -152,6 +152,13 @@ class ScopeRegistry:
     def list(self) -> list[Target]:
         return list(self._targets.values())
 
+    def register(self, target: Target) -> None:
+        """Add or replace a target at runtime (dynamic onboarding). The target's
+        base_url must sit inside its own allowlist, same invariant as load()."""
+        if not target.guard().is_allowed(target.base_url):
+            raise ScopeError(f"{target.id}: base_url is not inside its own allowed_origins")
+        self._targets[target.id] = target
+
     def authorize(self, target_id: str, operator: str, acknowledged: bool, today: date | None = None) -> Target:
         t = self._targets.get(target_id)
         if t is None:

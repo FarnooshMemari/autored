@@ -57,6 +57,14 @@ export class AutoRedClient {
   createMission = (body: { target_id: string; operator: string; authorization_acknowledged: boolean; agents?: string[] }) =>
     this.req<any>("/api/missions", { method: "POST", body: JSON.stringify(body) });
   stopMission = (id: string) => this.req<{ stopped: boolean }>(`/api/missions/${id}/stop`, { method: "POST" });
+
+  // --- dynamic target onboarding ("test your AI website") ---
+  onboardingConfig = () => this.req<{ enabled: boolean; allow_private_targets: boolean; admin_approval_available: boolean }>("/api/onboarding/config");
+  onboardingTargets = () => this.req<any[]>("/api/onboarding/targets");
+  onboardTarget = (body: Record<string, unknown>) =>
+    this.req<any>("/api/onboarding/targets", { method: "POST", body: JSON.stringify(body) });
+  verifyTarget = (id: string, body: Record<string, unknown>) =>
+    this.req<any>(`/api/onboarding/targets/${id}/verify`, { method: "POST", body: JSON.stringify(body) });
   emergencyStop = (reason: string) => this.req<{ stopped: string[] }>("/api/emergency-stop", { method: "POST", body: JSON.stringify({ reason }) });
   resetEmergencyStop = () => this.req("/api/emergency-stop/reset", { method: "POST" });
 
