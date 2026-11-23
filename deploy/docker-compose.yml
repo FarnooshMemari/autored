@@ -1,0 +1,45 @@
+# Local / self-host deployment of the AutoRed live backend.
+#
+#   docker compose -f deploy/docker-compose.yml up --build
+#
+# Then open the PUBLIC demo (https://farnooshmemari.github.io/autored-demo/),
+# click "Run live assessment", and connect to http://localhost:7860 with the
+# token below. The frontend origin must be in AUTORED_CORS_ORIGINS.
+#
+# This default is the SANDBOX-LOCKED demo (only the bundled AcmeHelp target can be
+# onboarded). To test your OWN authorized site instead, set AUTORED_DEMO_TARGET_ORIGINS=""
+# and AUTORED_ALLOW_PRIVATE_TARGETS=0 (public targets) — see DEPLOYMENT.md.
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    ports:
+      - "7860:7860"
+    environment:
+      PORT: "7860"
+      AUTORED_PUBLIC_MODE: "1"
+      AUTORED_API_TOKEN: "${AUTORED_API_TOKEN:-change-me-please}"
+      AUTORED_ADMIN_TOKEN: "${AUTORED_ADMIN_TOKEN:-change-me-too}"
+      AUTORED_ALLOW_PRIVATE_TARGETS: "1"
+      AUTORED_DEMO_TARGET_ORIGINS: "http://127.0.0.1:8100"
+      AUTORED_SANDBOX: "1"
+      AUTORED_CORS_ORIGINS: "${AUTORED_CORS_ORIGINS:-https://farnooshmemari.github.io,http://localhost:5173}"
+      AUTORED_MAX_ACTIVE_MISSIONS: "1"
+    # Playwright/Chromium needs more shm than Docker's 64MB default.
+    shm_size: "1gb"
+    restart: unless-stopped
+
+  # Optional: local Ollama for adaptive/hybrid planning (not needed for fixed `assess`,
+  # which runs with 0 LLM calls). Enable with:  --profile planner
+  ollama:
+    image: ollama/ollama:0.5.4
+    profiles: ["planner"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    restart: unless-stopped
+
+volumes:
+  ollama:

@@ -86,6 +86,11 @@ def create_app(settings: Settings | None = None, scopes: ScopeRegistry | None = 
         await manager.emergency_stop("server shutdown")
         await runtime.close()
 
+    # A public-facing instance must not run wide open: require an access token.
+    if settings.public_mode and not settings.api_token:
+        raise RuntimeError("AUTORED_PUBLIC_MODE=1 requires AUTORED_API_TOKEN to be set "
+                           "(a public instance must not accept unauthenticated requests)")
+
     app = FastAPI(title="AutoRed", version="0.1.0", lifespan=lifespan)
     app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins),
                        allow_methods=["*"], allow_headers=["*"])
@@ -151,7 +156,10 @@ def create_app(settings: Settings | None = None, scopes: ScopeRegistry | None = 
         return {"ok": True, "schema_version": SCHEMA_VERSION, "emergency_stop": manager.estop.engaged,
                 "emergency_stop_reason": manager.estop.reason,
                 "active_missions": [m.id for m in active], "total_missions": len(manager.missions),
-                "max_active": manager.max_active, "headless": settings.headless}
+                "max_active": manager.max_active, "headless": settings.headless,
+                "public_mode": settings.public_mode, "live": True,
+                "onboarding_enabled": onboarding is not None,
+                "demo_locked": bool(settings.demo_target_origins)}
 
     @app.get("/api/agents", response_model=list[AgentInfo], dependencies=[api])
     async def agents():
@@ -178,7 +186,9 @@ def create_app(settings: Settings | None = None, scopes: ScopeRegistry | None = 
     async def onboarding_config():
         return {"enabled": onboarding is not None,
                 "allow_private_targets": settings.allow_private_targets,
-                "admin_approval_available": bool(settings.admin_token)}
+                "admin_approval_available": bool(settings.admin_token),
+                "public_mode": settings.public_mode,
+                "demo_target_origins": list(settings.demo_target_origins)}
 
     @app.get("/api/onboarding/targets", dependencies=[api])
     async def onboarding_list():
@@ -192,6 +202,12 @@ def create_app(settings: Settings | None = None, scopes: ScopeRegistry | None = 
             resolved = validate_target_url(body.url, allow_private=settings.allow_private_targets)
         except SSRFError as e:
             raise HTTPException(422, f"URL rejected: {e}")
+        # Hosted-demo safety lock: when a bundled-sandbox allowlist is configured, this
+        # instance is NOT an open scanner — it may only test the pre-authorized origin(s).
+        if settings.demo_target_origins and resolved.origin not in settings.demo_target_origins:
+            raise HTTPException(403, "this public instance only tests its bundled sandbox target; "
+                                "arbitrary third-party URLs are not permitted here. Run AutoRed locally "
+                                "to test a site you are authorized to assess.")
         try:
             ot = reg.onboard(
                 resolved, name=body.name, scope_description=body.scope_description,

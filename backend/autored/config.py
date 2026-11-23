@@ -21,6 +21,10 @@ class Settings:
     allow_private_targets: bool = False   # DEV ONLY: permit loopback/RFC-1918 targets (SSRF guard relaxed)
     admin_token: str | None = None        # grants admin-approved authorization for onboarded targets
     onboarding_store: Path = ROOT / "runs" / "onboarded-targets.json"
+    # --- public/hosted-demo safety lock ---
+    public_mode: bool = False             # hosted-facing: hardens defaults and restricts onboarding
+    demo_target_origins: tuple[str, ...] = ()  # if set, onboarding ONLY accepts these origins
+                                               # (a bundled sandbox) — never arbitrary third-party URLs
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -42,4 +46,12 @@ class Settings:
             s.onboarding_store = Path(v)
         elif os.environ.get("AUTORED_RUNS_DIR"):
             s.onboarding_store = s.runs_dir / "onboarded-targets.json"
+        s.public_mode = os.environ.get("AUTORED_PUBLIC_MODE", "0") == "1"
+        if v := os.environ.get("AUTORED_DEMO_TARGET_ORIGINS"):
+            s.demo_target_origins = tuple(o.strip().rstrip("/") for o in v.split(",") if o.strip())
+        # In public mode, refuse to run wide open: a token is required and quotas tighten.
+        if s.public_mode:
+            s.max_active_missions = int(os.environ.get("AUTORED_MAX_ACTIVE_MISSIONS", 1))
+            if v := os.environ.get("AUTORED_CORS_ORIGINS"):
+                s.cors_origins = tuple(o.strip() for o in v.split(",") if o.strip())
         return s

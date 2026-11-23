@@ -9,6 +9,7 @@ import { Findings } from "./views/Findings";
 import { Experiments } from "./views/Experiments";
 import { History } from "./views/History";
 import { SystemHealth } from "./views/SystemHealth";
+import { LiveConnect, type LiveConn } from "./views/LiveConnect";
 
 type View = "control" | "ops" | "attacks" | "findings" | "experiments" | "history" | "health";
 const NAV: { id: View; label: string; ic: string; sect: string }[] = [
@@ -24,8 +25,19 @@ const NAV: { id: View; label: string; ic: string; sect: string }[] = [
 const DEMO = import.meta.env.VITE_DEMO === "1";
 const DEMO_MISSION = "M-20261122-173200-e6a4";
 
+const LIVE_KEY = "autored.live";
+function loadLive(): LiveConn | null {
+  try { const v = localStorage.getItem(LIVE_KEY); return v ? JSON.parse(v) : null; } catch { return null; }
+}
+
 export default function App() {
-  const client = useMemo(() => new AutoRedClient({ demo: DEMO, token: import.meta.env.VITE_AUTORED_TOKEN }), []);
+  // In a DEMO build the base client is read-only static; connecting a live backend
+  // overrides it so the whole dashboard drives real missions against that backend.
+  const [live, setLive] = useState<LiveConn | null>(() => loadLive());
+  const client = useMemo(
+    () => live ? new AutoRedClient({ baseUrl: live.url, token: live.token || undefined })
+               : new AutoRedClient({ demo: DEMO, token: import.meta.env.VITE_AUTORED_TOKEN }),
+    [live]);
   const urlMission = new URLSearchParams(location.search).get("mission");
   const [view, setView] = useState<View>(urlMission ? "ops" : "control");
   const [agents, setAgents] = useState<AgentInfo[]>([]);
@@ -40,6 +52,11 @@ export default function App() {
     const f = () => client.health().then(setHealth).catch(() => setHealth({ ok: false }));
     f(); const t = setInterval(f, 5000); return () => clearInterval(t);
   }, [client]);
+
+  const connectLive = (c: LiveConn) => { try { localStorage.setItem(LIVE_KEY, JSON.stringify(c)); } catch { /* ignore */ }
+    setLive(c); setMissionId(null); setView("control"); };
+  const disconnectLive = () => { try { localStorage.removeItem(LIVE_KEY); } catch { /* ignore */ }
+    setLive(null); setMissionId(DEMO ? DEMO_MISSION : null); setView("control"); };
 
   const openMission = (id: string) => { setMissionId(id); setView("ops"); history.replaceState(null, "", `?mission=${id}`); };
   const stop = () => missionId && client.stopMission(missionId).catch(() => {});
@@ -59,20 +76,23 @@ export default function App() {
       <div className="brand"><span className="dot" /> AutoRed</div>
       <div className="topbar">
         <div className="row" style={{ gap: 12 }}>
-          {DEMO
-            ? <span className="pill" style={{ color: "var(--accent)" }}>● Public demo · read-only</span>
-            : <span className="pill" style={{ color: health?.ok ? "var(--ok)" : "var(--bad)" }}>{health?.ok ? "Backend online" : "Backend offline"}</span>}
+          {live
+            ? <span className="pill" style={{ color: health?.ok ? "var(--ok)" : "var(--bad)" }}>{health?.ok ? "● Live backend connected" : "⚠ Live backend unavailable"}</span>
+            : DEMO
+              ? <span className="pill" style={{ color: "var(--accent)" }}>● Explore demo · read-only</span>
+              : <span className="pill" style={{ color: health?.ok ? "var(--ok)" : "var(--bad)" }}>{health?.ok ? "Backend online" : "Backend offline"}</span>}
           {missionId && <span className="pill" style={{ color: "var(--accent)" }}>mission {missionId}</span>}
         </div>
         <div className="row" style={{ gap: 8 }}>
           <select className="mobile-nav" value={view} onChange={(e) => setView(e.target.value as View)}>
             {NAV.map((n) => <option key={n.id} value={n.id}>{n.label}</option>)}
           </select>
-          {DEMO
-            ? <a className="btn sm ghost" href="https://github.com/FarnooshMemari" target="_blank" rel="noreferrer">About AutoRed</a>
-            : health?.emergency_stop
-              ? <button className="btn sm" onClick={() => client.resetEmergencyStop().catch(() => {})}>Reset E-Stop</button>
-              : <button className="btn sm danger" onClick={estop}>■ EMERGENCY STOP</button>}
+          {DEMO && <LiveConnect current={live} onConnect={connectLive} onDisconnect={disconnectLive} />}
+          {(!DEMO || live)
+            ? (health?.emergency_stop
+                ? <button className="btn sm" onClick={() => client.resetEmergencyStop().catch(() => {})}>Reset E-Stop</button>
+                : <button className="btn sm danger" onClick={estop}>■ EMERGENCY STOP</button>)
+            : <a className="btn sm ghost" href="https://github.com/FarnooshMemari" target="_blank" rel="noreferrer">About AutoRed</a>}
         </div>
       </div>
       <nav className="nav">
